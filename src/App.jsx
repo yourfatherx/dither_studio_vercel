@@ -6,7 +6,6 @@ import {
   RotateCcw,
   ZoomIn,
   ZoomOut,
-  Maximize,
   Video,
   Disc,
   Download,
@@ -129,42 +128,12 @@ const ALGORITHM_CATEGORIES = {
 };
 
 const PALETTE_PRESETS = {
-  Halloween: [
-    ['#050505', '#4a5d23', '#d2691e', '#e6e6fa'],
-    ['#000000', '#ff6600', '#ffffff'],
-    ['#1a0505', '#5c0000', '#ff0000', '#ffcc00'],
-  ],
-  Retro: [
-    ['#000000', '#ffffff'],
-    ['#000000', '#ff0000', '#ffff00', '#ffffff'],
-    ['#2b1b0e', '#704214', '#b5651d', '#e8c5a5'],
-    ['#000000', '#00aaaa', '#aa00aa', '#aaaaaa'],
-  ],
-  Cyber: [
-    ['#020617', '#22c55e', '#bbf7d0'],
-    ['#0f172a', '#22c55e', '#4ade80', '#a3e635'],
-    ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'],
+  CyberGB: [
+    ['#020a00', '#4c7f00', '#9bbc0f', '#e5ff8a'],
+    ['#000000', '#9bbc0f', '#e5ff8a'],
   ],
   Print: [
     ['#000000', '#00ffff', '#ff00ff', '#ffff00', '#ffffff'],
-    [
-      '#1a1c2c',
-      '#5d275d',
-      '#b13e53',
-      '#ef7d57',
-      '#ffcd75',
-      '#a7f070',
-      '#38b764',
-      '#257179',
-      '#29366f',
-      '#3b5dc9',
-      '#41a6f6',
-      '#73eff7',
-      '#f4f4f4',
-      '#94b0c2',
-      '#566c86',
-      '#333c57',
-    ],
   ],
 };
 
@@ -518,10 +487,8 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  // media intrinsic size and zoom
   const [mediaDims, setMediaDims] = useState(null);
-  const fitZoomRef = useRef(1);
-  const [zoomFactor, setZoomFactor] = useState(1);
+  const [zoom, setZoom] = useState(1); // 0.5 – 2
 
   const [showSettings, setShowSettings] = useState(true);
 
@@ -529,8 +496,8 @@ export default function App() {
   const [style, setStyle] = useState('Atkinson');
   const [selectedCategory, setSelectedCategory] = useState('Error Diffusion');
 
-  const [paletteCategory, setPaletteCategory] = useState('Cyber');
-  const [paletteIdx, setPaletteIdx] = useState(1);
+  const [paletteCategory, setPaletteCategory] = useState('CyberGB');
+  const [paletteIdx, setPaletteIdx] = useState(0);
 
   const [contrast, setContrast] = useState(45);
   const [midtones, setMidtones] = useState(50);
@@ -547,7 +514,7 @@ export default function App() {
   const hiddenVideoRef = useRef(null);
   const hiddenImageRef = useRef(null);
   const fileInputRef = useRef(null);
-  const containerRef = useRef(null);
+  const workspaceRef = useRef(null);
   const animationFrameRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
@@ -558,7 +525,7 @@ export default function App() {
   );
 
   const currentPalette = useMemo(() => {
-    const cat = PALETTE_PRESETS[paletteCategory] || PALETTE_PRESETS.Cyber;
+    const cat = PALETTE_PRESETS[paletteCategory] || PALETTE_PRESETS.CyberGB;
     const raw = cat[paletteIdx] || cat[0];
     return raw.map(hexToRgb);
   }, [paletteCategory, paletteIdx]);
@@ -568,18 +535,6 @@ export default function App() {
       setStyle(availableStyles[0]);
     }
   }, [availableStyles, style]);
-
-  const computeFitZoom = useCallback((mediaW, mediaH) => {
-    if (!containerRef.current || !mediaW || !mediaH) return;
-    const { clientWidth, clientHeight } = containerRef.current;
-    const usableW = clientWidth * 0.9;
-    const usableH = clientHeight * 0.9;
-    const scaleX = usableW / mediaW;
-    const scaleY = usableH / mediaH;
-    const fitZoom = Math.min(scaleX, scaleY, 1); // never auto-upscale
-    fitZoomRef.current = fitZoom > 0 ? fitZoom : 1;
-    setZoomFactor(1);
-  }, []);
 
   const handleFileUpload = (file) => {
     if (!file) return;
@@ -599,9 +554,25 @@ export default function App() {
   };
 
   const onFileInputChange = (e) => {
-    const file = e.target.files?.[0] || null;
-    handleFileUpload(file);
+    handleFileUpload(e.target.files?.[0] || null);
   };
+
+  const computeRenderSize = useCallback(
+    (intrinsicW, intrinsicH) => {
+      const workspace = workspaceRef.current;
+      if (!workspace) return { w: intrinsicW, h: intrinsicH };
+      const padding = 32; // px
+      const maxW = Math.max(200, workspace.clientWidth - padding);
+      const maxH = Math.max(200, workspace.clientHeight - padding);
+
+      const baseScale = Math.min(maxW / intrinsicW, maxH / intrinsicH, 1);
+      const finalScale = baseScale * zoom;
+      const w = Math.max(1, Math.floor(intrinsicW * finalScale));
+      const h = Math.max(1, Math.floor(intrinsicH * finalScale));
+      return { w, h };
+    },
+    [zoom],
+  );
 
   const processFrame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -609,30 +580,31 @@ export default function App() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let w;
-    let h;
+    let srcW;
+    let srcH;
     let source = null;
 
     if (mediaType === 'video') {
       const video = hiddenVideoRef.current;
       if (!video || video.paused || video.ended) return;
-      w = video.videoWidth;
-      h = video.videoHeight;
+      srcW = video.videoWidth;
+      srcH = video.videoHeight;
       source = video;
     } else {
       const img = hiddenImageRef.current;
       if (!img) return;
-      w = img.naturalWidth || img.width;
-      h = img.naturalHeight || img.height;
+      srcW = img.naturalWidth || img.width;
+      srcH = img.naturalHeight || img.height;
       source = img;
     }
 
-    if (!w || !h || !source) return;
+    if (!srcW || !srcH || !source) return;
 
-    if (!mediaDims || mediaDims.w !== w || mediaDims.h !== h) {
-      setMediaDims({ w, h });
-      computeFitZoom(w, h);
+    if (!mediaDims || mediaDims.w !== srcW || mediaDims.h !== srcH) {
+      setMediaDims({ w: srcW, h: srcH });
     }
+
+    const { w, h } = computeRenderSize(srcW, srcH);
 
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
@@ -640,7 +612,7 @@ export default function App() {
     }
 
     ctx.filter = `blur(${blur}px)`;
-    ctx.drawImage(source, 0, 0, w, h);
+    ctx.drawImage(source, 0, 0, srcW, srcH, 0, 0, w, h);
     ctx.filter = 'none';
 
     const imageData = ctx.getImageData(0, 0, w, h);
@@ -667,6 +639,7 @@ export default function App() {
   }, [
     mediaType,
     isPlaying,
+    mediaDims,
     scale,
     style,
     currentPalette,
@@ -679,8 +652,7 @@ export default function App() {
     invert,
     threshold,
     blur,
-    mediaDims,
-    computeFitZoom,
+    computeRenderSize,
   ]);
 
   useEffect(() => {
@@ -693,9 +665,7 @@ export default function App() {
 
     if (mediaType === 'video') {
       const video = hiddenVideoRef.current;
-      if (video) {
-        video.play().catch(() => undefined);
-      }
+      if (video) video.play().catch(() => undefined);
       if (isPlaying) {
         animationFrameRef.current = requestAnimationFrame(processFrame);
         return () => {
@@ -716,8 +686,7 @@ export default function App() {
 
   const handleDrop = (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files?.[0] || null;
-    handleFileUpload(file);
+    handleFileUpload(e.dataTransfer.files?.[0] || null);
   };
 
   const toggleRecording = () => {
@@ -782,34 +751,18 @@ export default function App() {
     setInvert(false);
     setSelectedCategory('Error Diffusion');
     setStyle('Atkinson');
-    setPaletteCategory('Cyber');
-    setPaletteIdx(1);
+    setPaletteCategory('CyberGB');
+    setPaletteIdx(0);
     setMidtones(50);
     setHighlights(50);
     setLineScale(4);
-    setZoomFactor(1);
-    fitZoomRef.current = 1;
+    setZoom(1);
   };
 
-  const adjustZoom = (multiplier) => {
-    setZoomFactor(z => {
-      const next = z * multiplier;
-      return Math.min(3, Math.max(0.25, next));
-    });
-  };
-
-  const zoomIn = () => adjustZoom(1.15);
-  const zoomOut = () => adjustZoom(1 / 1.15);
-
-  const displayZoom = fitZoomRef.current * zoomFactor;
-
-  const displayWidth = mediaDims ? mediaDims.w * displayZoom : undefined;
-  const displayHeight = mediaDims ? mediaDims.h * displayZoom : undefined;
-
-  const ControlGroup = ({ label, value, min, max, onChange, highlight, subLabel }) => (
+  const ControlGroup = ({ label, value, min, max, onChange, highlight }) => (
     <div className="mb-3">
       <div className="mb-1 flex justify-between text-[11px]">
-        <span className={highlight ? 'text-lime-400 font-semibold' : 'text-slate-400'}>{label}</span>
+        <span className={highlight ? 'text-[#9bbc0f] font-semibold' : 'text-slate-400'}>{label}</span>
         <span className="font-mono text-slate-500">{value}</span>
       </div>
       <input
@@ -818,14 +771,15 @@ export default function App() {
         max={max}
         value={value}
         onChange={e => onChange(Number(e.target.value))}
-        className="h-1 w-full cursor-pointer appearance-none rounded-lg bg-slate-900 accent-lime-400"
+        className="h-1 w-full cursor-pointer appearance-none rounded bg-slate-900 accent-[#9bbc0f]"
       />
-      {subLabel && <div className="mt-1 text-[10px] text-slate-500">{subLabel}</div>}
     </div>
   );
 
+  const paletteNames = Object.keys(PALETTE_PRESETS);
+
   return (
-    <div className="flex h-screen flex-col bg-black text-slate-200 selection:bg-lime-400 selection:text-black">
+    <div className="flex h-screen flex-col bg-black text-slate-100 selection:bg-[#9bbc0f] selection:text-black">
       {/* hidden media */}
       <img
         ref={hiddenImageRef}
@@ -836,7 +790,6 @@ export default function App() {
           const w = img.naturalWidth || img.width;
           const h = img.naturalHeight || img.height;
           setMediaDims({ w, h });
-          computeFitZoom(w, h);
           processFrame();
         }}
         alt="source"
@@ -853,47 +806,37 @@ export default function App() {
           const w = video.videoWidth;
           const h = video.videoHeight;
           setMediaDims({ w, h });
-          computeFitZoom(w, h);
           if (isPlaying) processFrame();
         }}
       />
 
-      {/* top bar */}
-      <header className="relative z-20 flex h-14 flex-shrink-0 items-center justify-between border-b border-lime-400/10 bg-gradient-to-r from-black via-slate-950/60 to-black px-6">
-        <div className="flex items-center gap-4 overflow-hidden">
-          <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-lime-400/10 ring-1 ring-lime-300/40 shadow-[0_0_30px_rgba(190,242,100,0.6)]">
-            <span className="text-xs font-black tracking-wider text-lime-300">EX</span>
-            <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,#22c55e44,transparent_65%)]" />
+      {/* HEADER */}
+      <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/20 bg-gradient-to-r from-black via-slate-950/60 to-black px-5">
+        <div className="flex items-center gap-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded border border-[#9bbc0f]/60 bg-black shadow-[0_0_25px_rgba(155,188,15,0.7)]">
+            <span className="text-[11px] font-black tracking-widest text-[#9bbc0f]">EX</span>
           </div>
-          <div className="flex min-w-0 flex-col">
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="bg-gradient-to-r from-lime-300 via-lime-400 to-emerald-300 bg-clip-text text-sm font-black tracking-[0.35em] text-transparent">
-                EX DITHERA
-              </span>
-              <span className="rounded-full bg-lime-400/10 px-2 py-0.5 text-[10px] font-semibold text-lime-300">
-                REALTIME
-              </span>
-            </div>
-            <span className="mt-0.5 truncate text-[11px] text-slate-500">
-              Adaptive error–diffusion lab for video &amp; still frames.
+          <div className="flex flex-col">
+            <span className="bg-gradient-to-r from-[#9bbc0f] via-lime-300 to-emerald-300 bg-clip-text text-xs font-black tracking-[0.35em] text-transparent">
+              EX DITHERA
+            </span>
+            <span className="mt-0.5 text-[10px] text-slate-500">
+              Adaptive error–diffusion lab for stills & video.
             </span>
           </div>
         </div>
-
-        <div className="flex flex-shrink-0 items-center gap-6 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500">GPU STATUS</span>
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-800">
-                <div className="h-full w-4/5 bg-gradient-to-r from-lime-300 via-lime-400 to-emerald-400" />
-              </div>
-              <span className="font-mono text-lime-300">80%</span>
+        <div className="flex items-center gap-4 text-[10px]">
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="text-slate-500">GPU</span>
+            <div className="h-1.5 w-20 overflow-hidden rounded bg-slate-800">
+              <div className="h-full w-4/5 bg-[#9bbc0f]" />
             </div>
+            <span className="font-mono text-[#9bbc0f]">80%</span>
           </div>
           <button
             onClick={() => setShowSettings(s => !s)}
-            className={`flex h-8 w-8 items-center justify-center rounded-md border border-lime-400/20 bg-black/60 text-slate-400 transition hover:border-lime-300/60 hover:text-lime-200 ${
-              showSettings ? 'ring-1 ring-lime-300/60 text-lime-300' : ''
+            className={`flex h-8 w-8 items-center justify-center rounded border border-[#9bbc0f]/40 bg-black/80 text-slate-400 transition hover:text-[#9bbc0f] ${
+              showSettings ? 'shadow-[0_0_15px_rgba(155,188,15,0.7)] text-[#9bbc0f]' : ''
             }`}
           >
             <Settings size={16} />
@@ -901,225 +844,98 @@ export default function App() {
         </div>
       </header>
 
-      {/* main layout */}
+      {/* MAIN LAYOUT */}
       <main className="flex min-h-0 flex-1 overflow-hidden">
-        {/* left panel */}
-        <aside className="hidden min-h-0 w-64 flex-shrink-0 flex-col overflow-auto border-r border-lime-400/10 bg-gradient-to-b from-black via-slate-950 to-black/90 px-4 py-4 lg:flex">
-          <div className="mb-4 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
-            Session Metrics
-          </div>
-          <div className="space-y-3">
-            <div className="rounded-xl border border-lime-400/20 bg-black/60 p-3 shadow-[0_0_20px_rgba(74,222,128,0.12)]">
-              <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span>Active Frames</span>
-                <span className="text-lime-400">Live</span>
-              </div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-2xl font-bold text-lime-300">7</span>
-                <span className="text-[10px] text-emerald-400/80">+2 new</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-lime-400/10 bg-black/70 p-2.5">
-                <div className="text-[10px] text-slate-500">Error Glitching</div>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <span className="text-lg font-semibold text-lime-300">{bleed}</span>
-                  <span className="text-[10px] text-slate-500">%</span>
-                </div>
-              </div>
-              <div className="rounded-xl border border-lime-400/10 bg-black/70 p-2.5">
-                <div className="text-[10px] text-slate-500">Pixel Scale</div>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <span className="text-lg font-semibold text-lime-300">{scale}</span>
-                  <span className="text-[10px] text-slate-500">x</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-lime-400/10 bg-black/80 p-3">
-              <div className="mb-1 flex items-center justify-between text-[10px] text-slate-500">
-                <span>Histogram Balance</span>
-                <span className="text-lime-300">Stable</span>
-              </div>
-              <div className="flex h-10 items-end gap-1">
-                {[40, 65, 80, 60, 45, 30].map((hgt, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 rounded-t-full bg-gradient-to-t from-slate-900 via-lime-400/40 to-lime-300/90"
-                    style={{ height: `${hgt}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* center workspace */}
-        <section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-b from-black via-slate-950 to-black">
-          {/* EX DITHERA glyph */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-0 flex justify-center pt-4">
-            <div className="flex flex-col items-center opacity-80">
-              <span className="bg-gradient-to-r from-lime-300 via-lime-500 to-amber-300 bg-clip-text text-xs font-black tracking-[0.6em] text-transparent">
-                EX
-              </span>
-              <span className="mt-0.5 bg-gradient-to-r from-lime-200 to-lime-400 bg-clip-text text-[10px] font-bold tracking-[0.4em] text-transparent">
-                DITHERA
-              </span>
-              <div className="mt-1 h-8 w-px bg-gradient-to-b from-lime-300/80 via-lime-500/40 to-transparent" />
-            </div>
+        {/* CENTER WORKSPACE */}
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-b from-black via-slate-950 to-black">
+          {/* top strip HUD */}
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/10 bg-black/80 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-slate-500">
+            <span>Workspace</span>
+            <span className="text-[#9bbc0f]">Realtime Dither Engine</span>
           </div>
 
           <div
-            ref={containerRef}
-            className="relative z-10 flex min-h-0 flex-1 flex-col px-6 pb-8 pt-10"
+            ref={workspaceRef}
+            className="relative flex min-h-0 flex-1 overflow-auto px-4 pb-4 pt-4"
             onDragOver={e => e.preventDefault()}
             onDrop={handleDrop}
           >
-            {/* scrollable workspace area */}
-            <div className="relative flex min-h-0 flex-1 overflow-auto rounded-2xl border border-slate-900 bg-gradient-to-b from-black/80 via-slate-950/90 to-black/90 p-4">
-              <div className="m-auto">
-                {sourceUrl ? (
-                  <div className="relative inline-block">
-                    <canvas
-                      ref={canvasRef}
-                      style={{
-                        display: 'block',
-                        imageRendering: 'pixelated',
-                        width: displayWidth ? `${displayWidth}px` : 'auto',
-                        height: displayHeight ? `${displayHeight}px` : 'auto',
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                      }}
-                      className="rounded-2xl"
-                    />
-                    <div className="pointer-events-none absolute inset-0 rounded-2xl border border-lime-300/10 shadow-[inset_0_0_60px_rgba(15,23,42,0.8)]" />
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-lime-400/30 bg-black/70 px-10 py-16 text-center text-slate-500 shadow-[0_0_40px_rgba(15,23,42,0.8)]">
-                    <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-lime-400/40 bg-gradient-to-b from-black via-slate-950 to-black shadow-[0_0_40px_rgba(190,242,100,0.3)]">
-                      <Upload size={34} className="text-lime-300" />
-                    </div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.4em] text-lime-300">
-                      Drop Media
-                    </p>
-                    <p className="mt-2 text-[11px] text-slate-500">
-                      Drag an image or video here, or click <span className="text-lime-300">Import</span> in
-                      the control rail.
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-600">
-                      Supports PNG, JPG, GIF, MP4, WEBM
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* zoom control bar */}
-            <div className="mt-3 flex items-center justify-center">
-              <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-lime-400/20 bg-black/80 px-3 py-1.5 text-[11px] text-slate-300 shadow-[0_0_30px_rgba(15,23,42,0.9)]">
-                <button
-                  onClick={zoomOut}
-                  disabled={!sourceUrl}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/70 text-slate-400 transition hover:bg-lime-400/20 hover:text-lime-300 disabled:opacity-40"
-                >
-                  <ZoomOut size={14} />
-                </button>
-                <div className="mx-1 flex items-center gap-2">
-                  <span className="font-mono text-slate-400">
-                    {sourceUrl ? (displayZoom * 100).toFixed(0) : '--'}%
-                  </span>
-                  <span className="h-1 w-20 overflow-hidden rounded-full bg-slate-900">
-                    <span
-                      className="block h-full bg-gradient-to-r from-lime-300 via-lime-500 to-emerald-400"
-                      style={{
-                        width: sourceUrl ? `${Math.min(100, Math.max(displayZoom * 100, 5))}%` : '0%',
-                      }}
-                    />
-                  </span>
+            <div className="m-auto">
+              {sourceUrl ? (
+                <div className="inline-block rounded border border-[#9bbc0f]/30 bg-black/80 p-2 shadow-[0_0_35px_rgba(15,23,42,0.8)]">
+                  <canvas
+                    ref={canvasRef}
+                    className="block max-h-[80vh] max-w-full rounded"
+                    style={{ imageRendering: 'pixelated' }}
+                  />
                 </div>
-                <button
-                  onClick={zoomIn}
-                  disabled={!sourceUrl}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900/70 text-slate-400 transition hover:bg-lime-400/20 hover:text-lime-300 disabled:opacity-40"
-                >
-                  <ZoomIn size={14} />
-                </button>
-                <button
-                  onClick={() => {
-                    if (!mediaDims) return;
-                    computeFitZoom(mediaDims.w, mediaDims.h);
-                  }}
-                  disabled={!sourceUrl}
-                  className="ml-1 flex h-7 items-center gap-1 rounded-full bg-gradient-to-r from-lime-400/20 via-lime-500/20 to-emerald-400/20 px-2 text-[10px] font-semibold text-lime-200 ring-1 ring-lime-400/40 hover:from-lime-400/30 hover:via-lime-500/30 hover:to-emerald-400/30 disabled:opacity-40"
-                >
-                  <Maximize size={12} />
-                  Fit
-                </button>
-              </div>
+              ) : (
+                <div className="flex max-w-lg flex-col items-center rounded border border-dashed border-[#9bbc0f]/40 bg-black/80 px-10 py-12 text-center text-[11px] text-slate-400">
+                  <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-[#9bbc0f]/60 bg-black shadow-[0_0_30px_rgba(155,188,15,0.65)]">
+                    <Upload size={30} className="text-[#9bbc0f]" />
+                  </div>
+                  <p className="font-semibold uppercase tracking-[0.4em] text-[#9bbc0f]">
+                    Drop Media
+                  </p>
+                  <p className="mt-2">
+                    Drag an image or video here, or use the <span className="text-[#9bbc0f]">Import</span>{' '}
+                    button in the control panel.
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-600">
+                    Supports PNG, JPG, GIF, MP4, WEBM.
+                  </p>
+                </div>
+              )}
             </div>
+          </div>
 
-            {/* bottom mobile import/export */}
-            <div className="mt-3 flex border-t border-lime-400/10 bg-black/80 px-4 py-3 text-[11px] lg:hidden">
-              <div className="flex flex-1 items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/mp4,video/webm"
-                  onChange={onFileInputChange}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-1 rounded-md bg-lime-500/10 px-3 py-1.5 font-semibold text-lime-300 ring-1 ring-lime-400/60"
-                >
-                  <ImageIcon size={13} /> Import
-                </button>
-                <button
-                  onClick={mediaType === 'video' ? toggleRecording : handleStaticExport}
-                  disabled={!sourceUrl}
-                  className={`flex items-center gap-1 rounded-md px-3 py-1.5 font-semibold ${
-                    sourceUrl
-                      ? 'bg-slate-900 text-slate-200 ring-1 ring-lime-300/40 hover:bg-lime-500/10 hover:text-lime-200'
-                      : 'bg-slate-900 text-slate-600 ring-1 ring-slate-700'
-                  }`}
-                >
-                  {mediaType === 'video' ? (
-                    isRecording ? (
-                      <>
-                        <Disc size={12} className="text-red-400" /> Stop
-                      </>
-                    ) : (
-                      <>
-                        <Video size={12} /> Record
-                      </>
-                    )
-                  ) : (
-                    <>
-                      <Download size={12} /> Export
-                    </>
-                  )}
-                </button>
-              </div>
+          {/* ZOOM BAR (simple) */}
+          <div className="flex flex-shrink-0 items-center justify-center border-t border-[#9bbc0f]/10 bg-black/80 px-4 py-2">
+            <div className="flex items-center gap-3 rounded-full border border-[#9bbc0f]/30 bg-black/80 px-3 py-1 text-[10px]">
+              <button
+                onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}
+                disabled={!sourceUrl}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-slate-400 hover:text-[#9bbc0f] disabled:opacity-40"
+              >
+                <ZoomOut size={12} />
+              </button>
+              <span className="font-mono text-slate-400">
+                {sourceUrl ? `${Math.round(zoom * 100)}%` : '--'}
+              </span>
+              <input
+                type="range"
+                min={50}
+                max={200}
+                value={zoom * 100}
+                disabled={!sourceUrl}
+                onChange={e => setZoom(Number(e.target.value) / 100)}
+                className="h-1 w-32 cursor-pointer appearance-none rounded bg-slate-900 accent-[#9bbc0f] disabled:opacity-40"
+              />
+              <button
+                onClick={() => setZoom(z => Math.min(2, z + 0.1))}
+                disabled={!sourceUrl}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-slate-400 hover:text-[#9bbc0f] disabled:opacity-40"
+              >
+                <ZoomIn size={12} />
+              </button>
             </div>
           </div>
         </section>
 
-        {/* right control rail */}
+        {/* RIGHT CONTROL PANEL */}
         <aside
-          className={`z-20 flex min-h-0 w-80 flex-shrink-0 flex-col overflow-auto border-l border-lime-400/10 bg-gradient-to-b from-black via-slate-950 to-black/90 transition-transform duration-300 ${
+          className={`flex min-h-0 w-80 flex-shrink-0 flex-col border-l border-[#9bbc0f]/20 bg-gradient-to-b from-black via-slate-950 to-black transition-transform duration-300 ${
             showSettings ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          <div className="flex items-center justify-between border-b border-lime-400/10 px-5 py-3 text-[11px] uppercase tracking-[0.2em] text-slate-500">
-            <span>Control Rail</span>
-            <span className="rounded-full bg-lime-500/10 px-2 py-0.5 text-[10px] font-semibold text-lime-300">
-              EX Engine
-            </span>
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/20 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-slate-500">
+            <span>Controls</span>
+            <span className="text-[#9bbc0f]">Ex Core</span>
           </div>
-          <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto px-5 py-4">
-            {/* import/export */}
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
+
+          <div className="flex-1 overflow-auto px-4 py-3 text-[11px]">
+            {/* IMPORT / EXPORT */}
+            <div className="mb-4 grid grid-cols-2 gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1129,207 +945,148 @@ export default function App() {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 rounded-lg border border-lime-400/40 bg-gradient-to-b from-black via-slate-950 to-black px-3 py-2 font-semibold text-lime-200 shadow-[0_0_25px_rgba(190,242,100,0.25)] hover:border-lime-200"
+                className="flex items-center justify-center gap-2 rounded border border-[#9bbc0f]/60 bg-black/80 px-3 py-2 font-semibold text-[#9bbc0f] shadow-[0_0_20px_rgba(155,188,15,0.45)]"
               >
-                <ImageIcon size={14} /> Import
+                <ImageIcon size={13} /> Import
               </button>
-
               <button
                 onClick={mediaType === 'video' ? toggleRecording : handleStaticExport}
                 disabled={!sourceUrl}
-                className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 font-semibold shadow-sm ${
+                className={`flex items-center justify-center gap-2 rounded border px-3 py-2 font-semibold ${
                   mediaType === 'video'
                     ? isRecording
                       ? 'border-red-500 bg-red-500 text-black animate-pulse'
                       : sourceUrl
-                      ? 'border-lime-400/40 bg-black text-slate-200 hover:bg-lime-500/10'
-                      : 'border-slate-700 bg-black text-slate-700'
+                      ? 'border-[#9bbc0f]/50 bg-black text-slate-100 hover:bg-[#9bbc0f]/10'
+                      : 'border-slate-800 bg-black text-slate-600'
                     : sourceUrl
-                    ? 'border-lime-400/40 bg-black text-slate-200 hover:bg-lime-500/10'
-                    : 'border-slate-700 bg-black text-slate-700'
+                    ? 'border-[#9bbc0f]/50 bg-black text-slate-100 hover:bg-[#9bbc0f]/10'
+                    : 'border-slate-800 bg-black text-slate-600'
                 }`}
               >
                 {mediaType === 'video' ? (
                   isRecording ? (
                     <>
-                      <Disc size={13} /> Stop
+                      <Disc size={12} /> Stop
                     </>
                   ) : (
                     <>
-                      <Video size={13} /> Record
+                      <Video size={12} /> Record
                     </>
                   )
                 ) : (
                   <>
-                    <Download size={13} /> Export
+                    <Download size={12} /> Export
                   </>
                 )}
               </button>
             </div>
 
-            {/* dither engine */}
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-lime-300">
+            {/* DITHER ENGINE */}
+            <div className="mb-4">
+              <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9bbc0f]">
                 <Layers size={12} /> Dither Engine
               </div>
-              <div className="space-y-2 text-[11px]">
-                <select
-                  value={selectedCategory}
-                  onChange={e => setSelectedCategory(e.target.value)}
-                  className="w-full rounded-lg border border-slate-800 bg-black/80 px-3 py-2 text-xs text-slate-200 outline-none ring-lime-400/40 focus:border-lime-300 focus:ring-1"
-                >
-                  {Object.keys(ALGORITHM_CATEGORIES).map(cat => (
-                    <option key={cat}>{cat}</option>
-                  ))}
-                </select>
-                <select
-                  value={style}
-                  onChange={e => setStyle(e.target.value)}
-                  className="w-full rounded-lg border border-slate-800 bg-black/80 px-3 py-2 text-xs text-slate-200 outline-none ring-lime-400/40 focus:border-lime-300 focus:ring-1"
-                >
-                  {availableStyles.map(s => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* main controls */}
-            <div className="space-y-1">
-              <ControlGroup
-                label="Pixel Scale"
-                value={scale}
-                min={1}
-                max={20}
-                onChange={setScale}
-                highlight
-                subLabel="Controls pixelation intensity."
-              />
-              <ControlGroup
-                label="Pattern Scale"
-                value={lineScale}
-                min={1}
-                max={50}
-                onChange={setLineScale}
-                subLabel="Used by line / modulation patterns."
-              />
-            </div>
-
-            {/* palette */}
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-lime-300">
-                <ImageIcon size={12} /> Color Pipeline
-              </div>
               <select
-                value={paletteCategory}
-                onChange={e => {
-                  setPaletteCategory(e.target.value);
-                  setPaletteIdx(0);
-                }}
-                className="mb-3 w-full rounded-lg border border-slate-800 bg-black/80 px-3 py-2 text-xs text-slate-200 outline-none ring-lime-400/40 focus:border-lime-300 focus:ring-1"
+                value={selectedCategory}
+                onChange={e => setSelectedCategory(e.target.value)}
+                className="mb-2 w-full rounded border border-slate-800 bg-black/80 px-3 py-2 text-xs text-slate-100 outline-none focus:border-[#9bbc0f] focus:ring-1 focus:ring-[#9bbc0f]"
               >
-                {Object.keys(PALETTE_PRESETS).map(p => (
-                  <option key={p}>{p}</option>
+                {Object.keys(ALGORITHM_CATEGORIES).map(cat => (
+                  <option key={cat}>{cat}</option>
                 ))}
               </select>
-
-              <div className="grid grid-cols-1 gap-2">
-                {(PALETTE_PRESETS[paletteCategory] || []).map((pal, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setPaletteIdx(idx)}
-                    className={`relative flex h-8 w-full overflow-hidden rounded-lg border transition-transform ${
-                      paletteIdx === idx
-                        ? 'scale-[1.02] border-lime-300 ring-1 ring-lime-400/80 shadow-[0_0_25px_rgba(190,242,100,0.5)]'
-                        : 'border-slate-800 hover:border-lime-300/60'
-                    }`}
-                  >
-                    <div className="absolute inset-0 flex">
-                      {pal.map((c, i) => (
-                        <div key={i} style={{ background: c }} className="flex-1" />
-                      ))}
-                    </div>
-                  </button>
+              <select
+                value={style}
+                onChange={e => setStyle(e.target.value)}
+                className="w-full rounded border border-slate-800 bg-black/80 px-3 py-2 text-xs text-slate-100 outline-none focus:border-[#9bbc0f] focus:ring-1 focus:ring-[#9bbc0f]"
+              >
+                {availableStyles.map(s => (
+                  <option key={s}>{s}</option>
                 ))}
-              </div>
+              </select>
             </div>
 
-            {/* tone shaping */}
-            <div>
-              <div className="mb-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.2em] text-lime-300">
-                <span>Tone Shaping</span>
+            {/* BASIC CONTROLS */}
+            <ControlGroup
+              label="Pixel Scale"
+              value={scale}
+              min={1}
+              max={20}
+              onChange={setScale}
+              highlight
+            />
+            <ControlGroup label="Pattern Scale" value={lineScale} min={1} max={50} onChange={setLineScale} />
+
+            {/* PALETTE */}
+            <div className="mt-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9bbc0f]">
+              Color Pipeline
+            </div>
+            <select
+              value={paletteCategory}
+              onChange={e => {
+                setPaletteCategory(e.target.value);
+                setPaletteIdx(0);
+              }}
+              className="mb-3 w-full rounded border border-slate-800 bg-black/80 px-3 py-2 text-xs text-slate-100 outline-none focus:border-[#9bbc0f] focus:ring-1 focus:ring-[#9bbc0f]"
+            >
+              {paletteNames.map(p => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+            <div className="mb-4 space-y-2">
+              {(PALETTE_PRESETS[paletteCategory] || []).map((pal, idx) => (
                 <button
-                  onClick={() => setInvert(i => !i)}
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    invert
-                      ? 'bg-lime-400 text-black shadow-[0_0_15px_rgba(190,242,100,0.6)]'
-                      : 'border border-slate-800 bg-black text-slate-400'
+                  key={idx}
+                  onClick={() => setPaletteIdx(idx)}
+                  className={`relative flex h-7 w-full overflow-hidden rounded border text-[10px] ${
+                    paletteIdx === idx
+                      ? 'border-[#9bbc0f] shadow-[0_0_20px_rgba(155,188,15,0.6)]'
+                      : 'border-slate-800'
                   }`}
                 >
-                  Invert
+                  <div className="absolute inset-0 flex">
+                    {pal.map((c, i) => (
+                      <div key={i} style={{ background: c }} className="flex-1" />
+                    ))}
+                  </div>
                 </button>
-              </div>
-
-              <ControlGroup
-                label="Luminance Threshold"
-                value={threshold}
-                min={0}
-                max={255}
-                onChange={setThreshold}
-                highlight
-                subLabel="Bias towards dark or bright."
-              />
-              <ControlGroup
-                label="Pre-Blur"
-                value={blur}
-                min={0}
-                max={20}
-                onChange={setBlur}
-                subLabel="Softens noise before dithering."
-              />
-              <ControlGroup label="Contrast" value={contrast} min={0} max={100} onChange={setContrast} />
-              <ControlGroup
-                label="Midtones"
-                value={midtones}
-                min={0}
-                max={100}
-                onChange={setMidtones}
-              />
-              <ControlGroup
-                label="Highlights"
-                value={highlights}
-                min={0}
-                max={100}
-                onChange={setHighlights}
-              />
-              <ControlGroup
-                label="Bleed (Error Push)"
-                value={bleed}
-                min={0}
-                max={100}
-                onChange={setBleed}
-                subLabel="Above 50% introduces controlled glitch."
-              />
-              <ControlGroup
-                label="Depth Offset"
-                value={depth}
-                min={0}
-                max={20}
-                onChange={setDepth}
-                subLabel="Creates pseudo-3D echo."
-              />
+              ))}
             </div>
 
-            {/* reset */}
+            {/* TONE SHAPING */}
+            <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9bbc0f]">
+              <span>Tone Shaping</span>
+              <button
+                onClick={() => setInvert(i => !i)}
+                className={`rounded px-2 py-0.5 text-[9px] ${
+                  invert
+                    ? 'bg-[#9bbc0f] text-black'
+                    : 'border border-slate-700 bg-black text-slate-400'
+                }`}
+              >
+                Invert
+              </button>
+            </div>
+
+            <ControlGroup label="Threshold" value={threshold} min={0} max={255} onChange={setThreshold} />
+            <ControlGroup label="Pre-Blur" value={blur} min={0} max={20} onChange={setBlur} />
+            <ControlGroup label="Contrast" value={contrast} min={0} max={100} onChange={setContrast} />
+            <ControlGroup label="Midtones" value={midtones} min={0} max={100} onChange={setMidtones} />
+            <ControlGroup label="Highlights" value={highlights} min={0} max={100} onChange={setHighlights} />
+            <ControlGroup label="Bleed" value={bleed} min={0} max={100} onChange={setBleed} />
+            <ControlGroup label="Depth" value={depth} min={0} max={20} onChange={setDepth} />
+
+            {/* RESET */}
             <button
               onClick={handleReset}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-black/80 px-3 py-2 text-[11px] font-semibold text-red-300 transition hover:bg-red-500/10"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded border border-red-500/50 bg-black/80 px-3 py-2 text-[11px] font-semibold text-red-300 hover:bg-red-500/10"
             >
-              <RotateCcw size={12} /> Reset Parameters
+              <RotateCcw size={12} /> Reset
             </button>
 
-            <div className="pb-4 text-center text-[10px] text-slate-600">
-              v4.1.0 • EX DITHERA LAB
+            <div className="mt-3 pb-2 text-center text-[9px] text-slate-600">
+              EX DITHERA • HUD v4.1
             </div>
           </div>
         </aside>

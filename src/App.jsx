@@ -17,7 +17,7 @@ import {
 
 /* ----------------------------- 1. CONFIG ----------------------------- */
 
-const ALGORITHM_CATEGORIES = {
+const ALGORITHM_CATEGORIES: Record<string, any> = {
   'Error Diffusion': {
     'Floyd-Steinberg': { divisor: 16, offsets: [[1, 0, 7], [-1, 1, 3], [0, 1, 5], [1, 1, 1]] },
     Atkinson: { divisor: 8, offsets: [[1, 0, 1], [2, 0, 1], [-1, 1, 1], [0, 1, 1], [1, 1, 1], [0, 2, 1]] },
@@ -128,7 +128,7 @@ const ALGORITHM_CATEGORIES = {
   },
 };
 
-const PALETTE_PRESETS = {
+const PALETTE_PRESETS: Record<string, string[][]> = {
   Halloween: [
     ['#050505', '#4a5d23', '#d2691e', '#e6e6fa'],
     ['#000000', '#ff6600', '#ffffff'],
@@ -170,7 +170,7 @@ const PALETTE_PRESETS = {
 
 /* ---------------------------- 2. HELPERS ----------------------------- */
 
-const getBayerMatrix = (size) => {
+const getBayerMatrix = (size: number): number[][] => {
   if (size === 2) return [[0, 2], [3, 1]].map(r => r.map(v => v * 64));
   if (size === 4)
     return [
@@ -205,7 +205,7 @@ const getBayerMatrix = (size) => {
   return [[0]];
 };
 
-const getKnollMatrix = () =>
+const getKnollMatrix = (): number[][] =>
   [
     [6, 12, 10, 16],
     [8, 4, 14, 2],
@@ -213,7 +213,7 @@ const getKnollMatrix = () =>
     [5, 7, 3, 1],
   ].map(r => r.map(v => v * 16));
 
-const generateBlueNoise = (w, h) => {
+const generateBlueNoise = (w: number, h: number): Uint8ClampedArray => {
   const noise = new Uint8ClampedArray(w * h);
   for (let i = 0; i < noise.length; i++) {
     const x = i % w;
@@ -223,14 +223,28 @@ const generateBlueNoise = (w, h) => {
   return noise;
 };
 
-const hexToRgb = (hex) => {
+const hexToRgb = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : [0, 0, 0];
 };
 
 /* ------------------------ 3. IMAGE PROCESSING ------------------------ */
 
-const processImage = (imageData, settings) => {
+type Settings = {
+  scale: number;
+  style: string;
+  palette: [number, number, number][];
+  lineScale: number;
+  bleed: number;
+  contrast: number;
+  midtones: number;
+  highlights: number;
+  depth: number;
+  invert: boolean;
+  threshold: number;
+};
+
+const processImage = (imageData: ImageData, settings: Settings): ImageData => {
   const { width, height, data } = imageData;
   const { scale, style, palette, lineScale, bleed, contrast, midtones, highlights, depth, invert, threshold } =
     settings;
@@ -276,15 +290,15 @@ const processImage = (imageData, settings) => {
 };
 
 const applyAdjustments = (
-  gray,
+  gray: Uint8ClampedArray,
   {
     contrast,
     midtones,
     highlights,
     invert,
     threshold,
-  },
-) => {
+  }: { contrast: number; midtones: number; highlights: number; invert: boolean; threshold: number },
+): Uint8ClampedArray => {
   const adjusted = new Uint8ClampedArray(gray);
   const lut = new Uint8ClampedArray(256);
   const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
@@ -309,15 +323,15 @@ const applyAdjustments = (
 };
 
 const applyDither = (
-  gray,
-  w,
-  h,
-  style,
-  lineScale,
-  bleed,
-) => {
-  let algo = null;
-  let category = null;
+  gray: Uint8ClampedArray,
+  w: number,
+  h: number,
+  style: string,
+  lineScale: number,
+  bleed: number,
+): Uint8ClampedArray => {
+  let algo: any = null;
+  let category: string | null = null;
 
   for (const [cat, algos] of Object.entries(ALGORITHM_CATEGORIES)) {
     if (algos[style]) {
@@ -428,9 +442,9 @@ const applyDither = (
   return gray;
 };
 
-const applyOstromoukhov = (gray, w, h) => {
+const applyOstromoukhov = (gray: Uint8ClampedArray, w: number, h: number): Uint8ClampedArray => {
   const pixels = new Float32Array(gray);
-  const getCoefficients = (val) => {
+  const getCoefficients = (val: number): [number, number, number] => {
     const v = val / 255;
     if (v < 0.25) return [13, 0, 5];
     if (v < 0.5) return [6, 13, 0];
@@ -456,11 +470,11 @@ const applyOstromoukhov = (gray, w, h) => {
 };
 
 const applyRiemersma = (
-  gray,
-  w,
-  h,
-  intensity,
-) => {
+  gray: Uint8ClampedArray,
+  w: number,
+  h: number,
+  intensity: number,
+): Uint8ClampedArray => {
   const output = new Uint8ClampedArray(gray);
   const pixels = new Float32Array(gray);
   let error = 0;
@@ -480,7 +494,7 @@ const applyRiemersma = (
   return output;
 };
 
-const applyDepth = (dithered, w, h, depth) => {
+const applyDepth = (dithered: Uint8ClampedArray, w: number, h: number, depth: number): Uint8ClampedArray => {
   const output = new Uint8ClampedArray(dithered);
   const offset = Math.floor(depth);
   if (offset === 0) return dithered;
@@ -493,9 +507,9 @@ const applyDepth = (dithered, w, h, depth) => {
 };
 
 const applyPalette = (
-  gray,
-  colors,
-) => {
+  gray: Uint8ClampedArray,
+  colors: [number, number, number][],
+): Uint8ClampedArray => {
   const output = new Uint8ClampedArray(gray.length * 3);
   const stops = Math.max(1, colors.length - 1);
   for (let i = 0; i < gray.length; i++) {
@@ -514,8 +528,8 @@ const applyPalette = (
 /* --------------------------- 4. MAIN APP ----------------------------- */
 
 export default function App() {
-  const [mediaType, setMediaType] = useState(null);
-  const [sourceUrl, setSourceUrl] = useState(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
@@ -540,14 +554,14 @@ export default function App() {
   const [depth, setDepth] = useState(0);
   const [invert, setInvert] = useState(false);
 
-  const canvasRef = useRef(null);
-  const hiddenVideoRef = useRef(null);
-  const hiddenImageRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const containerRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const recordedChunksRef = useRef([]);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const hiddenImageRef = useRef<HTMLImageElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   const availableStyles = useMemo(
     () => Object.keys(ALGORITHM_CATEGORIES[selectedCategory] || {}),
@@ -587,7 +601,7 @@ export default function App() {
     setZoom(Math.min(scaleX, scaleY));
   }, [mediaType]);
 
-  const handleFileUpload = (file) => {
+  const handleFileUpload = (file: File | null) => {
     if (!file) return;
     setIsPlaying(false);
     setIsRecording(false);
@@ -603,7 +617,7 @@ export default function App() {
     }
   };
 
-  const onFileInputChange = (e) => {
+  const onFileInputChange: React.ChangeEventHandler<HTMLInputElement> = e => {
     const file = e.target.files?.[0] || null;
     handleFileUpload(file);
   };
@@ -614,9 +628,9 @@ export default function App() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let w;
-    let h;
-    let source = null;
+    let w: number;
+    let h: number;
+    let source: HTMLVideoElement | HTMLImageElement | null = null;
 
     if (mediaType === 'video') {
       const video = hiddenVideoRef.current;
@@ -705,7 +719,7 @@ export default function App() {
     }
   }, [mediaType, sourceUrl, isPlaying, processFrame]);
 
-  const handleDrop = (e) => {
+  const handleDrop: React.DragEventHandler<HTMLDivElement> = e => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0] || null;
     handleFileUpload(file);
@@ -729,7 +743,7 @@ export default function App() {
     }
 
     const stream = canvas.captureStream(30);
-    let options = { mimeType: 'video/webm;codecs=vp9' };
+    let options: MediaRecorderOptions = { mimeType: 'video/webm;codecs=vp9' };
     if (!MediaRecorder.isTypeSupported(options.mimeType || '')) {
       options = { mimeType: 'video/webm' };
     }
@@ -783,7 +797,15 @@ export default function App() {
   const zoomIn = () => setZoom(z => Math.min(z * 1.15, 4));
   const zoomOut = () => setZoom(z => Math.max(z / 1.15, 0.25));
 
-  const ControlGroup = ({ label, value, min, max, onChange, highlight, subLabel }) => (
+  const ControlGroup: React.FC<{
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    onChange: (v: number) => void;
+    highlight?: boolean;
+    subLabel?: string;
+  }> = ({ label, value, min, max, onChange, highlight, subLabel }) => (
     <div className="mb-3">
       <div className="flex justify-between text-[11px] mb-1">
         <span className={highlight ? 'text-lime-400 font-semibold' : 'text-slate-400'}>{label}</span>

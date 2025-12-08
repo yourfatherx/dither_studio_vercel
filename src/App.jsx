@@ -4,13 +4,10 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import {
   Upload,
   RotateCcw,
-  ZoomIn,
-  ZoomOut,
   Video,
   Disc,
   Download,
   Image as ImageIcon,
-  Settings,
   Layers,
 } from 'lucide-react';
 
@@ -23,74 +20,39 @@ const ALGORITHM_CATEGORIES = {
     'Jarvis-Judice-Ninke': {
       divisor: 48,
       offsets: [
-        [1, 0, 7],
-        [2, 0, 5],
-        [-2, 1, 3],
-        [-1, 1, 5],
-        [0, 1, 7],
-        [1, 1, 5],
-        [2, 1, 3],
-        [-2, 2, 1],
-        [-1, 2, 3],
-        [0, 2, 5],
-        [1, 2, 3],
-        [2, 2, 1],
+        [1, 0, 7], [2, 0, 5],
+        [-2, 1, 3], [-1, 1, 5], [0, 1, 7], [1, 1, 5], [2, 1, 3],
+        [-2, 2, 1], [-1, 2, 3], [0, 2, 5], [1, 2, 3], [2, 2, 1],
       ],
     },
     Stucki: {
       divisor: 42,
       offsets: [
-        [1, 0, 8],
-        [2, 0, 4],
-        [-2, 1, 2],
-        [-1, 1, 4],
-        [0, 1, 8],
-        [1, 1, 4],
-        [2, 1, 2],
-        [-2, 2, 1],
-        [-1, 2, 2],
-        [0, 2, 4],
-        [1, 2, 2],
-        [2, 2, 1],
+        [1, 0, 8], [2, 0, 4],
+        [-2, 1, 2], [-1, 1, 4], [0, 1, 8], [1, 1, 4], [2, 1, 2],
+        [-2, 2, 1], [-1, 2, 2], [0, 2, 4], [1, 2, 2], [2, 2, 1],
       ],
     },
     Burkes: {
       divisor: 32,
       offsets: [
-        [1, 0, 8],
-        [2, 0, 4],
-        [-2, 1, 2],
-        [-1, 1, 4],
-        [0, 1, 8],
-        [1, 1, 4],
-        [2, 1, 2],
+        [1, 0, 8], [2, 0, 4],
+        [-2, 1, 2], [-1, 1, 4], [0, 1, 8], [1, 1, 4], [2, 1, 2],
       ],
     },
     Sierra: {
       divisor: 32,
       offsets: [
-        [1, 0, 5],
-        [2, 0, 3],
-        [-2, 1, 2],
-        [-1, 1, 4],
-        [0, 1, 5],
-        [1, 1, 4],
-        [2, 1, 2],
-        [-1, 2, 2],
-        [0, 2, 3],
-        [1, 2, 2],
+        [1, 0, 5], [2, 0, 3],
+        [-2, 1, 2], [-1, 1, 4], [0, 1, 5], [1, 1, 4], [2, 1, 2],
+        [-1, 2, 2], [0, 2, 3], [1, 2, 2],
       ],
     },
     'Two-Row Sierra': {
       divisor: 16,
       offsets: [
-        [1, 0, 4],
-        [2, 0, 3],
-        [-2, 1, 1],
-        [-1, 1, 2],
-        [0, 1, 3],
-        [1, 1, 2],
-        [2, 1, 1],
+        [1, 0, 4], [2, 0, 3],
+        [-2, 1, 1], [-1, 1, 2], [0, 1, 3], [1, 1, 2], [2, 1, 1],
       ],
     },
     'Sierra Lite': { divisor: 4, offsets: [[1, 0, 2], [-1, 1, 1], [0, 1, 1]] },
@@ -132,14 +94,12 @@ const PALETTE_PRESETS = {
     ['#020a00', '#4c7f00', '#9bbc0f', '#e5ff8a'],
     ['#000000', '#9bbc0f', '#e5ff8a'],
   ],
-  Print: [
-    ['#000000', '#00ffff', '#ff00ff', '#ffff00', '#ffffff'],
-  ],
+  Print: [['#000000', '#00ffff', '#ff00ff', '#ffff00', '#ffffff']],
 };
 
 /* ---------------------------- 2. HELPERS ----------------------------- */
 
-const getBayerMatrix = (size) => {
+const getBayerMatrix = size => {
   if (size === 2) return [[0, 2], [3, 1]].map(r => r.map(v => v * 64));
   if (size === 4)
     return [
@@ -192,17 +152,30 @@ const generateBlueNoise = (w, h) => {
   return noise;
 };
 
-const hexToRgb = (hex) => {
+const hexToRgb = hex => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)] : [0, 0, 0];
+  return result
+    ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+    : [0, 0, 0];
 };
 
 /* ------------------------ 3. IMAGE PROCESSING ------------------------ */
 
 const processImage = (imageData, settings) => {
   const { width, height, data } = imageData;
-  const { scale, style, palette, lineScale, bleed, contrast, midtones, highlights, depth, invert, threshold } =
-    settings;
+  const {
+    scale,
+    style,
+    palette,
+    lineScale,
+    bleed,
+    contrast,
+    midtones,
+    highlights,
+    depth,
+    invert,
+    threshold,
+  } = settings;
 
   const s = Math.max(1, scale);
   const scaledW = Math.max(1, Math.floor(width / s));
@@ -243,16 +216,7 @@ const processImage = (imageData, settings) => {
   return output;
 };
 
-const applyAdjustments = (
-  gray,
-  {
-    contrast,
-    midtones,
-    highlights,
-    invert,
-    threshold,
-  },
-) => {
+const applyAdjustments = (gray, { contrast, midtones, highlights, invert, threshold }) => {
   const adjusted = new Uint8ClampedArray(gray);
   const lut = new Uint8ClampedArray(256);
   const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
@@ -276,14 +240,7 @@ const applyAdjustments = (
   return adjusted;
 };
 
-const applyDither = (
-  gray,
-  w,
-  h,
-  style,
-  lineScale,
-  bleed,
-) => {
+const applyDither = (gray, w, h, style, lineScale, bleed) => {
   let algo = null;
   let category = null;
 
@@ -398,7 +355,7 @@ const applyDither = (
 
 const applyOstromoukhov = (gray, w, h) => {
   const pixels = new Float32Array(gray);
-  const getCoefficients = (val) => {
+  const getCoefficients = val => {
     const v = val / 255;
     if (v < 0.25) return [13, 0, 5];
     if (v < 0.5) return [6, 13, 0];
@@ -423,12 +380,7 @@ const applyOstromoukhov = (gray, w, h) => {
   return Uint8ClampedArray.from(pixels.map(v => Math.max(0, Math.min(255, v))));
 };
 
-const applyRiemersma = (
-  gray,
-  w,
-  h,
-  intensity,
-) => {
+const applyRiemersma = (gray, w, h, intensity) => {
   const output = new Uint8ClampedArray(gray);
   const pixels = new Float32Array(gray);
   let error = 0;
@@ -460,10 +412,7 @@ const applyDepth = (dithered, w, h, depth) => {
   return output;
 };
 
-const applyPalette = (
-  gray,
-  colors,
-) => {
+const applyPalette = (gray, colors) => {
   const output = new Uint8ClampedArray(gray.length * 3);
   const stops = Math.max(1, colors.length - 1);
   for (let i = 0; i < gray.length; i++) {
@@ -482,15 +431,12 @@ const applyPalette = (
 /* --------------------------- 4. MAIN APP ----------------------------- */
 
 export default function App() {
-  const [mediaType, setMediaType] = useState(null);
+  const [mediaType, setMediaType] = useState(null); // 'image' | 'video'
   const [sourceUrl, setSourceUrl] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  const [mediaDims, setMediaDims] = useState(null);
-  const [zoom, setZoom] = useState(1); // 0.5 – 2
-
-  const [showSettings, setShowSettings] = useState(true);
+  const [mediaDims, setMediaDims] = useState(null); // {w,h}
 
   const [scale, setScale] = useState(4);
   const [style, setStyle] = useState('Atkinson');
@@ -536,7 +482,7 @@ export default function App() {
     }
   }, [availableStyles, style]);
 
-  const handleFileUpload = (file) => {
+  const handleFileUpload = file => {
     if (!file) return;
     setIsPlaying(false);
     setIsRecording(false);
@@ -553,25 +499,24 @@ export default function App() {
     }
   };
 
-  const onFileInputChange = (e) => {
+  const onFileInputChange = e => {
     handleFileUpload(e.target.files?.[0] || null);
   };
 
+  // auto-fit render size: NO zoom, just fit inside workspace
   const computeRenderSize = useCallback(
     (intrinsicW, intrinsicH) => {
       const workspace = workspaceRef.current;
       if (!workspace) return { w: intrinsicW, h: intrinsicH };
-      const padding = 32; // px
+      const padding = 32;
       const maxW = Math.max(200, workspace.clientWidth - padding);
       const maxH = Math.max(200, workspace.clientHeight - padding);
-
-      const baseScale = Math.min(maxW / intrinsicW, maxH / intrinsicH, 1);
-      const finalScale = baseScale * zoom;
-      const w = Math.max(1, Math.floor(intrinsicW * finalScale));
-      const h = Math.max(1, Math.floor(intrinsicH * finalScale));
+      const scale = Math.min(maxW / intrinsicW, maxH / intrinsicH, 1);
+      const w = Math.max(1, Math.floor(intrinsicW * scale));
+      const h = Math.max(1, Math.floor(intrinsicH * scale));
       return { w, h };
     },
-    [zoom],
+    [],
   );
 
   const processFrame = useCallback(() => {
@@ -580,13 +525,11 @@ export default function App() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let srcW;
-    let srcH;
-    let source = null;
+    let srcW, srcH, source;
 
     if (mediaType === 'video') {
       const video = hiddenVideoRef.current;
-      if (!video || video.paused || video.ended) return;
+      if (!video || video.readyState < 2) return;
       srcW = video.videoWidth;
       srcH = video.videoHeight;
       source = video;
@@ -632,13 +575,8 @@ export default function App() {
     });
 
     ctx.putImageData(result, 0, 0);
-
-    if (mediaType === 'video' && isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(processFrame);
-    }
   }, [
     mediaType,
-    isPlaying,
     mediaDims,
     scale,
     style,
@@ -655,36 +593,49 @@ export default function App() {
     computeRenderSize,
   ]);
 
+  // main render loop
   useEffect(() => {
     if (!mediaType || !sourceUrl) return;
 
     if (mediaType === 'image') {
-      const id = requestAnimationFrame(processFrame);
-      return () => cancelAnimationFrame(id);
+      processFrame();
+      return;
     }
 
-    if (mediaType === 'video') {
-      const video = hiddenVideoRef.current;
-      if (video) video.play().catch(() => undefined);
-      if (isPlaying) {
-        animationFrameRef.current = requestAnimationFrame(processFrame);
-        return () => {
-          if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
-        };
-      } else if (video) {
-        video.pause();
-      }
+    const video = hiddenVideoRef.current;
+    if (!video) return;
+
+    if (isPlaying) {
+      let id;
+      const loop = () => {
+        processFrame();
+        id = requestAnimationFrame(loop);
+      };
+      video
+        .play()
+        .catch(() => {})
+        .finally(() => {
+          loop();
+        });
+      return () => {
+        if (id) cancelAnimationFrame(id);
+      };
+    } else {
+      video.pause();
+      processFrame();
     }
   }, [mediaType, sourceUrl, isPlaying, processFrame]);
 
-  useEffect(
-    () => () => {
-      if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current);
-    },
-    [],
-  );
+  // re-fit on window resize
+  useEffect(() => {
+    const onResize = () => {
+      if (sourceUrl) processFrame();
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [sourceUrl, processFrame]);
 
-  const handleDrop = (e) => {
+  const handleDrop = e => {
     e.preventDefault();
     handleFileUpload(e.dataTransfer.files?.[0] || null);
   };
@@ -708,7 +659,7 @@ export default function App() {
 
     const stream = canvas.captureStream(30);
     let options = { mimeType: 'video/webm;codecs=vp9' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType || '')) {
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
       options = { mimeType: 'video/webm' };
     }
 
@@ -756,7 +707,6 @@ export default function App() {
     setMidtones(50);
     setHighlights(50);
     setLineScale(4);
-    setZoom(1);
   };
 
   const ControlGroup = ({ label, value, min, max, onChange, highlight }) => (
@@ -811,9 +761,9 @@ export default function App() {
       />
 
       {/* HEADER */}
-      <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/20 bg-gradient-to-r from-black via-slate-950/60 to-black px-5">
+      <header className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/25 bg-gradient-to-r from-black via-slate-950/70 to-black px-5">
         <div className="flex items-center gap-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded border border-[#9bbc0f]/60 bg-black shadow-[0_0_25px_rgba(155,188,15,0.7)]">
+          <div className="flex h-9 w-9 items-center justify-center rounded border border-[#9bbc0f]/70 bg-black shadow-[0_0_25px_rgba(155,188,15,0.7)]">
             <span className="text-[11px] font-black tracking-widest text-[#9bbc0f]">EX</span>
           </div>
           <div className="flex flex-col">
@@ -821,39 +771,23 @@ export default function App() {
               EX DITHERA
             </span>
             <span className="mt-0.5 text-[10px] text-slate-500">
-              Adaptive error–diffusion lab for stills & video.
+              Adaptive error–diffusion lab for stills &amp; video.
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-[10px]">
-          <div className="hidden items-center gap-2 sm:flex">
-            <span className="text-slate-500">GPU</span>
-            <div className="h-1.5 w-20 overflow-hidden rounded bg-slate-800">
-              <div className="h-full w-4/5 bg-[#9bbc0f]" />
-            </div>
-            <span className="font-mono text-[#9bbc0f]">80%</span>
+        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+          <span>GPU</span>
+          <div className="h-1.5 w-20 overflow-hidden rounded bg-slate-800">
+            <div className="h-full w-4/5 bg-[#9bbc0f]" />
           </div>
-          <button
-            onClick={() => setShowSettings(s => !s)}
-            className={`flex h-8 w-8 items-center justify-center rounded border border-[#9bbc0f]/40 bg-black/80 text-slate-400 transition hover:text-[#9bbc0f] ${
-              showSettings ? 'shadow-[0_0_15px_rgba(155,188,15,0.7)] text-[#9bbc0f]' : ''
-            }`}
-          >
-            <Settings size={16} />
-          </button>
+          <span className="font-mono text-[#9bbc0f]">80%</span>
         </div>
       </header>
 
-      {/* MAIN LAYOUT */}
+      {/* MAIN */}
       <main className="flex min-h-0 flex-1 overflow-hidden">
         {/* CENTER WORKSPACE */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-gradient-to-b from-black via-slate-950 to-black">
-          {/* top strip HUD */}
-          <div className="flex flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/10 bg-black/80 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-slate-500">
-            <span>Workspace</span>
-            <span className="text-[#9bbc0f]">Realtime Dither Engine</span>
-          </div>
-
           <div
             ref={workspaceRef}
             className="relative flex min-h-0 flex-1 overflow-auto px-4 pb-4 pt-4"
@@ -862,7 +796,7 @@ export default function App() {
           >
             <div className="m-auto">
               {sourceUrl ? (
-                <div className="inline-block rounded border border-[#9bbc0f]/30 bg-black/80 p-2 shadow-[0_0_35px_rgba(15,23,42,0.8)]">
+                <div className="inline-block rounded border border-[#9bbc0f]/40 bg-black/80 p-2 shadow-[0_0_35px_rgba(15,23,42,0.8)]">
                   <canvas
                     ref={canvasRef}
                     className="block max-h-[80vh] max-w-full rounded"
@@ -870,8 +804,8 @@ export default function App() {
                   />
                 </div>
               ) : (
-                <div className="flex max-w-lg flex-col items-center rounded border border-dashed border-[#9bbc0f]/40 bg-black/80 px-10 py-12 text-center text-[11px] text-slate-400">
-                  <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-[#9bbc0f]/60 bg-black shadow-[0_0_30px_rgba(155,188,15,0.65)]">
+                <div className="flex max-w-lg flex-col items-center rounded border border-dashed border-[#9bbc0f]/50 bg-black/80 px-10 py-12 text-center text-[11px] text-slate-400">
+                  <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-[#9bbc0f]/70 bg-black shadow-[0_0_30px_rgba(155,188,15,0.65)]">
                     <Upload size={30} className="text-[#9bbc0f]" />
                   </div>
                   <p className="font-semibold uppercase tracking-[0.4em] text-[#9bbc0f]">
@@ -879,58 +813,22 @@ export default function App() {
                   </p>
                   <p className="mt-2">
                     Drag an image or video here, or use the <span className="text-[#9bbc0f]">Import</span>{' '}
-                    button in the control panel.
+                    button.
                   </p>
                   <p className="mt-1 text-[10px] text-slate-600">
-                    Supports PNG, JPG, GIF, MP4, WEBM.
+                    PNG, JPG, GIF, MP4, WEBM supported.
                   </p>
                 </div>
               )}
             </div>
           </div>
-
-          {/* ZOOM BAR (simple) */}
-          <div className="flex flex-shrink-0 items-center justify-center border-t border-[#9bbc0f]/10 bg-black/80 px-4 py-2">
-            <div className="flex items-center gap-3 rounded-full border border-[#9bbc0f]/30 bg-black/80 px-3 py-1 text-[10px]">
-              <button
-                onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}
-                disabled={!sourceUrl}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-slate-400 hover:text-[#9bbc0f] disabled:opacity-40"
-              >
-                <ZoomOut size={12} />
-              </button>
-              <span className="font-mono text-slate-400">
-                {sourceUrl ? `${Math.round(zoom * 100)}%` : '--'}
-              </span>
-              <input
-                type="range"
-                min={50}
-                max={200}
-                value={zoom * 100}
-                disabled={!sourceUrl}
-                onChange={e => setZoom(Number(e.target.value) / 100)}
-                className="h-1 w-32 cursor-pointer appearance-none rounded bg-slate-900 accent-[#9bbc0f] disabled:opacity-40"
-              />
-              <button
-                onClick={() => setZoom(z => Math.min(2, z + 0.1))}
-                disabled={!sourceUrl}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-slate-400 hover:text-[#9bbc0f] disabled:opacity-40"
-              >
-                <ZoomIn size={12} />
-              </button>
-            </div>
-          </div>
         </section>
 
         {/* RIGHT CONTROL PANEL */}
-        <aside
-          className={`flex min-h-0 w-80 flex-shrink-0 flex-col border-l border-[#9bbc0f]/20 bg-gradient-to-b from-black via-slate-950 to-black transition-transform duration-300 ${
-            showSettings ? 'translate-x-0' : 'translate-x-full'
-          }`}
-        >
-          <div className="flex flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/20 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-slate-500">
+        <aside className="flex min-h-0 w-80 flex-shrink-0 flex-col border-l border-[#9bbc0f]/25 bg-gradient-to-b from-black via-slate-950 to-black">
+          <div className="flex flex-shrink-0 items-center justify-between border-b border-[#9bbc0f]/25 px-4 py-2 text-[10px] uppercase tracking-[0.25em] text-slate-500">
             <span>Controls</span>
-            <span className="text-[#9bbc0f]">Ex Core</span>
+            <span className="text-[#9bbc0f]">Core</span>
           </div>
 
           <div className="flex-1 overflow-auto px-4 py-3 text-[11px]">
@@ -945,7 +843,7 @@ export default function App() {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 rounded border border-[#9bbc0f]/60 bg-black/80 px-3 py-2 font-semibold text-[#9bbc0f] shadow-[0_0_20px_rgba(155,188,15,0.45)]"
+                className="flex items-center justify-center gap-2 rounded border border-[#9bbc0f]/70 bg-black/80 px-3 py-2 font-semibold text-[#9bbc0f] shadow-[0_0_20px_rgba(155,188,15,0.45)]"
               >
                 <ImageIcon size={13} /> Import
               </button>
@@ -1008,15 +906,14 @@ export default function App() {
             </div>
 
             {/* BASIC CONTROLS */}
+            <ControlGroup label="Pixel Scale" value={scale} min={1} max={20} onChange={setScale} highlight />
             <ControlGroup
-              label="Pixel Scale"
-              value={scale}
+              label="Pattern Scale"
+              value={lineScale}
               min={1}
-              max={20}
-              onChange={setScale}
-              highlight
+              max={50}
+              onChange={setLineScale}
             />
-            <ControlGroup label="Pattern Scale" value={lineScale} min={1} max={50} onChange={setLineScale} />
 
             {/* PALETTE */}
             <div className="mt-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-[#9bbc0f]">
@@ -1039,7 +936,7 @@ export default function App() {
                 <button
                   key={idx}
                   onClick={() => setPaletteIdx(idx)}
-                  className={`relative flex h-7 w-full overflow-hidden rounded border text-[10px] ${
+                  className={`relative flex h-7 w-full overflow-hidden rounded border ${
                     paletteIdx === idx
                       ? 'border-[#9bbc0f] shadow-[0_0_20px_rgba(155,188,15,0.6)]'
                       : 'border-slate-800'
@@ -1073,7 +970,13 @@ export default function App() {
             <ControlGroup label="Pre-Blur" value={blur} min={0} max={20} onChange={setBlur} />
             <ControlGroup label="Contrast" value={contrast} min={0} max={100} onChange={setContrast} />
             <ControlGroup label="Midtones" value={midtones} min={0} max={100} onChange={setMidtones} />
-            <ControlGroup label="Highlights" value={highlights} min={0} max={100} onChange={setHighlights} />
+            <ControlGroup
+              label="Highlights"
+              value={highlights}
+              min={0}
+              max={100}
+              onChange={setHighlights}
+            />
             <ControlGroup label="Bleed" value={bleed} min={0} max={100} onChange={setBleed} />
             <ControlGroup label="Depth" value={depth} min={0} max={20} onChange={setDepth} />
 
@@ -1086,7 +989,7 @@ export default function App() {
             </button>
 
             <div className="mt-3 pb-2 text-center text-[9px] text-slate-600">
-              EX DITHERA • HUD v4.1
+              EX DITHERA • Minimal HUD
             </div>
           </div>
         </aside>

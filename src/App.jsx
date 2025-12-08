@@ -99,7 +99,7 @@ const PALETTE_PRESETS = {
 
 /* ---------------------------- 2. HELPERS ----------------------------- */
 
-const getBayerMatrix = size => {
+const getBayerMatrix = (size: number) => {
   if (size === 2) return [[0, 2], [3, 1]].map(r => r.map(v => v * 64));
   if (size === 4)
     return [
@@ -142,7 +142,7 @@ const getKnollMatrix = () =>
     [5, 7, 3, 1],
   ].map(r => r.map(v => v * 16));
 
-const generateBlueNoise = (w, h) => {
+const generateBlueNoise = (w: number, h: number) => {
   const noise = new Uint8ClampedArray(w * h);
   for (let i = 0; i < noise.length; i++) {
     const x = i % w;
@@ -152,7 +152,7 @@ const generateBlueNoise = (w, h) => {
   return noise;
 };
 
-const hexToRgb = hex => {
+const hexToRgb = (hex: string) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
@@ -161,7 +161,7 @@ const hexToRgb = hex => {
 
 /* ------------------------ 3. IMAGE PROCESSING ------------------------ */
 
-const processImage = (imageData, settings) => {
+const processImage = (imageData: ImageData, settings: any) => {
   const { width, height, data } = imageData;
   const {
     scale,
@@ -216,7 +216,10 @@ const processImage = (imageData, settings) => {
   return output;
 };
 
-const applyAdjustments = (gray, { contrast, midtones, highlights, invert, threshold }) => {
+const applyAdjustments = (
+  gray: Uint8ClampedArray,
+  { contrast, midtones, highlights, invert, threshold }: any,
+) => {
   const adjusted = new Uint8ClampedArray(gray);
   const lut = new Uint8ClampedArray(256);
   const contrastFactor = (259 * (contrast + 255)) / (255 * (259 - contrast));
@@ -240,13 +243,20 @@ const applyAdjustments = (gray, { contrast, midtones, highlights, invert, thresh
   return adjusted;
 };
 
-const applyDither = (gray, w, h, style, lineScale, bleed) => {
-  let algo = null;
-  let category = null;
+const applyDither = (
+  gray: Uint8ClampedArray,
+  w: number,
+  h: number,
+  style: string,
+  lineScale: number,
+  bleed: number,
+) => {
+  let algo: any = null;
+  let category: string | null = null;
 
   for (const [cat, algos] of Object.entries(ALGORITHM_CATEGORIES)) {
-    if (algos[style]) {
-      algo = algos[style];
+    if ((algos as any)[style]) {
+      algo = (algos as any)[style];
       category = cat;
       break;
     }
@@ -353,9 +363,9 @@ const applyDither = (gray, w, h, style, lineScale, bleed) => {
   return gray;
 };
 
-const applyOstromoukhov = (gray, w, h) => {
+const applyOstromoukhov = (gray: Uint8ClampedArray, w: number, h: number) => {
   const pixels = new Float32Array(gray);
-  const getCoefficients = val => {
+  const getCoefficients = (val: number) => {
     const v = val / 255;
     if (v < 0.25) return [13, 0, 5];
     if (v < 0.5) return [6, 13, 0];
@@ -380,7 +390,7 @@ const applyOstromoukhov = (gray, w, h) => {
   return Uint8ClampedArray.from(pixels.map(v => Math.max(0, Math.min(255, v))));
 };
 
-const applyRiemersma = (gray, w, h, intensity) => {
+const applyRiemersma = (gray: Uint8ClampedArray, w: number, h: number, intensity: number) => {
   const output = new Uint8ClampedArray(gray);
   const pixels = new Float32Array(gray);
   let error = 0;
@@ -400,7 +410,7 @@ const applyRiemersma = (gray, w, h, intensity) => {
   return output;
 };
 
-const applyDepth = (dithered, w, h, depth) => {
+const applyDepth = (dithered: Uint8ClampedArray, w: number, h: number, depth: number) => {
   const output = new Uint8ClampedArray(dithered);
   const offset = Math.floor(depth);
   if (offset === 0) return dithered;
@@ -412,7 +422,7 @@ const applyDepth = (dithered, w, h, depth) => {
   return output;
 };
 
-const applyPalette = (gray, colors) => {
+const applyPalette = (gray: Uint8ClampedArray, colors: number[][]) => {
   const output = new Uint8ClampedArray(gray.length * 3);
   const stops = Math.max(1, colors.length - 1);
   for (let i = 0; i < gray.length; i++) {
@@ -440,9 +450,11 @@ export default function App() {
 
   const [scale, setScale] = useState(4);
   const [style, setStyle] = useState('Atkinson');
-  const [selectedCategory, setSelectedCategory] = useState<keyof typeof ALGORITHM_CATEGORIES>('Error Diffusion');
+  const [selectedCategory, setSelectedCategory] =
+    useState<keyof typeof ALGORITHM_CATEGORIES>('Error Diffusion');
 
-  const [paletteCategory, setPaletteCategory] = useState<keyof typeof PALETTE_PRESETS>('CyberGB');
+  const [paletteCategory, setPaletteCategory] =
+    useState<keyof typeof PALETTE_PRESETS>('CyberGB');
   const [paletteIdx, setPaletteIdx] = useState(0);
 
   const [contrast, setContrast] = useState(45);
@@ -502,14 +514,14 @@ export default function App() {
     handleFileUpload(e.target.files?.[0] || null);
   };
 
-  // auto-fit render size: no zoom scaling beyond workspace
+  // auto-fit into viewport (no extra zoom)
   const computeRenderSize = useCallback(
     (intrinsicW: number, intrinsicH: number) => {
       const workspace = workspaceRef.current;
       if (!workspace) return { w: intrinsicW, h: intrinsicH };
-      const padding = 64;
-      const maxW = Math.max(240, workspace.clientWidth - padding);
-      const maxH = Math.max(240, workspace.clientHeight - padding);
+      const padding = 96;
+      const maxW = Math.max(260, workspace.clientWidth - padding);
+      const maxH = Math.max(260, workspace.clientHeight - padding);
       const s = Math.min(maxW / intrinsicW, maxH / intrinsicH, 1);
       return {
         w: Math.max(1, Math.floor(intrinsicW * s)),
@@ -525,7 +537,8 @@ export default function App() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let srcW: number, srcH: number, source: HTMLVideoElement | HTMLImageElement | null;
+    let srcW: number, srcH: number;
+    let source: HTMLVideoElement | HTMLImageElement | null;
 
     if (mediaType === 'video') {
       const video = hiddenVideoRef.current;
@@ -593,7 +606,7 @@ export default function App() {
     computeRenderSize,
   ]);
 
-  // main render loop
+  // render loop
   useEffect(() => {
     if (!mediaType || !sourceUrl) return;
 
@@ -626,7 +639,7 @@ export default function App() {
     }
   }, [mediaType, sourceUrl, isPlaying, processFrame]);
 
-  // re-fit on window resize
+  // resize handler
   useEffect(() => {
     const onResize = () => {
       if (sourceUrl) processFrame();
@@ -727,8 +740,8 @@ export default function App() {
     onChange: (v: number) => void;
   }) => (
     <div className="mb-3">
-      <div className="mb-1 flex justify-between text-[10px] tracking-[0.18em] uppercase">
-        <span className="text-[#ffb347]">{label}</span>
+      <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.22em]">
+        <span className="text-orange-400">{label}</span>
         <span className="font-mono text-orange-500">{value}</span>
       </div>
       <input
@@ -737,7 +750,7 @@ export default function App() {
         max={max}
         value={value}
         onChange={e => onChange(Number(e.target.value))}
-        className="h-1 w-full cursor-pointer appearance-none rounded bg-orange-900/40 accent-[#ffb347]"
+        className="h-1 w-full cursor-pointer appearance-none rounded bg-orange-900/30 accent-orange-400"
       />
     </div>
   );
@@ -745,8 +758,8 @@ export default function App() {
   const paletteNames = Object.keys(PALETTE_PRESETS);
 
   return (
-    <div className="flex h-screen flex-col bg-black text-orange-300 font-mono selection:bg-orange-400 selection:text-black">
-      {/* hidden media elements */}
+    <div className="h-screen bg-black text-orange-300 font-mono">
+      {/* hidden media */}
       <img
         ref={hiddenImageRef}
         src={mediaType === 'image' ? sourceUrl ?? '' : ''}
@@ -776,56 +789,51 @@ export default function App() {
         }}
       />
 
-      {/* TOP HUD BAR */}
-      <header className="flex h-16 flex-shrink-0 items-center justify-between border-b border-orange-500/60 bg-gradient-to-r from-black via-zinc-950 to-black px-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded border border-orange-500 shadow-[0_0_30px_rgba(255,115,0,0.9)]">
-            <span className="text-xs font-black tracking-[0.35em] text-orange-400">EX</span>
+      <div className="flex h-full flex-col">
+        {/* TOP BAR — like EDITING CURRENT PARAMETER */}
+        <header className="flex flex-none items-center justify-between border-b border-orange-500 px-8 py-3 text-[9px] uppercase tracking-[0.35em]">
+          <div className="flex items-center gap-4">
+            <div className="flex h-8 w-8 items-center justify-center border border-orange-500">
+              <span className="text-[9px] font-black tracking-[0.4em] text-orange-400">EX</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[9px] text-orange-400">Editing Current Parameter</span>
+              <span className="text-[9px] text-orange-600">
+                No. Buildings: {mediaDims ? `${mediaDims.w}×${mediaDims.h}` : '—'}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="bg-gradient-to-r from-orange-400 via-amber-300 to-yellow-200 bg-clip-text text-[10px] font-black tracking-[0.6em] text-transparent uppercase">
-              SUPER • TERRAIN 86
-            </span>
-            <span className="mt-1 text-[10px] tracking-[0.3em] text-orange-700 uppercase">
-              Adaptive dithering cartography unit
-            </span>
+          <div className="flex items-end gap-2 text-[9px]">
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-orange-500">SUPER TERRAIN 86</span>
+              <span className="text-orange-700">DITHER CARTOGRAPHY MODULE</span>
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col gap-1 text-[9px] text-orange-500 tracking-[0.18em] uppercase">
-          <div className="flex gap-6">
-            <span>GRID: {mediaDims ? `${mediaDims.w}×${mediaDims.h}` : 'NO INPUT'}</span>
-            <span>
-              ENGINE: {selectedCategory} › {style}
-            </span>
-          </div>
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-orange-500/70 to-transparent" />
-        </div>
-      </header>
+        </header>
 
-      {/* MAIN BODY */}
-      <main className="flex min-h-0 flex-1 overflow-hidden">
-        {/* CENTRAL TERRAIN VIEWPORT */}
-        <section className="flex min-w-0 flex-1 flex-col bg-gradient-to-b from-black via-zinc-950 to-black">
-          <div
+        {/* MIDDLE AREA */}
+        <div className="flex min-h-0 flex-1">
+          {/* CENTRAL VIEWPORT */}
+          <section
             ref={workspaceRef}
-            className="relative flex flex-1 items-center justify-center overflow-auto px-8 py-6"
+            className="relative flex min-w-0 flex-1 items-center justify-center px-8 py-6"
             onDragOver={e => e.preventDefault()}
             onDrop={handleDrop}
           >
             {sourceUrl ? (
-              <div className="relative inline-flex flex-col gap-2">
-                {/* top caption bar */}
-                <div className="flex items-center justify-between border border-orange-500/70 bg-black/80 px-4 py-1 text-[9px] uppercase tracking-[0.25em] text-orange-400">
-                  <span>ACTIVE HEIGHTMAP</span>
-                  <span>{mediaType === 'video' ? 'STREAM' : 'STILL'} INPUT</span>
+              <div className="flex flex-col gap-2">
+                {/* city graph bar mimic */}
+                <div className="flex items-center justify-between border border-orange-500 px-4 py-1 text-[8px] uppercase tracking-[0.3em]">
+                  <span>Cityscape Heightmap</span>
+                  <span>{mediaType === 'video' ? 'Live Stream' : 'Static Frame'}</span>
                 </div>
 
-                {/* canvas frame */}
-                <div className="relative border border-orange-500/80 bg-black/90 p-3 shadow-[0_0_45px_rgba(255,120,0,0.8)]">
-                  {/* fake isometric grid overlay lines (purely visual) */}
-                  <div className="pointer-events-none absolute inset-3 border border-orange-500/30" />
+                <div className="relative border border-orange-500 p-3">
+                  {/* outer grid rectangle */}
+                  <div className="pointer-events-none absolute inset-3 border border-orange-700" />
+                  {/* subtle radial glow */}
                   <div className="pointer-events-none absolute inset-3">
-                    <div className="h-full w-full bg-[radial-gradient(circle_at_top,_rgba(255,150,0,0.15),_transparent_70%)]" />
+                    <div className="h-full w-full bg-[radial-gradient(circle_at_top,_rgba(255,153,0,0.18),_transparent_70%)]" />
                   </div>
                   <canvas
                     ref={canvasRef}
@@ -834,124 +842,92 @@ export default function App() {
                   />
                 </div>
 
-                {/* tiny status bar under canvas */}
-                <div className="flex items-center justify-between border border-orange-500/60 bg-black/80 px-4 py-1 text-[9px] uppercase tracking-[0.25em] text-orange-500">
-                  <span>SESSION • {sourceUrl ? 'BOUND' : 'IDLE'}</span>
-                  <span>
-                    SCALE {scale} • DEPTH {depth}
-                  </span>
+                <div className="flex items-center justify-between border border-orange-500 px-4 py-1 text-[8px] uppercase tracking-[0.3em]">
+                  <span>Scale {scale} • Depth {depth}</span>
+                  <span>Engine {selectedCategory}</span>
                 </div>
               </div>
             ) : (
-              <div className="flex max-w-xl flex-col items-center rounded border border-dashed border-orange-500/70 bg-black/80 px-12 py-14 text-center text-[11px] text-orange-400 shadow-[0_0_40px_rgba(255,115,0,0.4)]">
-                <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full border border-orange-500/80 bg-black">
-                  <Upload size={34} className="text-orange-400" />
+              <div className="max-w-lg border border-dashed border-orange-500 px-12 py-14 text-center text-[10px]">
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-orange-500">
+                  <Upload size={30} />
                 </div>
-                <p className="text-[10px] uppercase tracking-[0.4em] text-orange-400">
-                  Drop Media To Instantiate Terrain
+                <p className="uppercase tracking-[0.4em] text-orange-400">
+                  Drop Media Into Terrain Grid
                 </p>
-                <p className="mt-3 text-[10px] text-orange-600">
-                  Drag an image or video into the grid, or use the{' '}
-                  <span className="text-orange-300">IMPORT SLOT</span> at the right.
+                <p className="mt-3 text-orange-600">
+                  Drag an image or video here, or use the{' '}
+                  <span className="text-orange-300">IMPORT</span> control on the right.
                 </p>
                 <p className="mt-1 text-[9px] text-orange-700">
                   PNG · JPG · GIF · MP4 · WEBM
                 </p>
               </div>
             )}
-          </div>
+          </section>
 
-          {/* bottom file strip */}
-          <div className="flex flex-shrink-0 items-stretch border-t border-orange-500/60 bg-black/95 px-8 py-3 text-[9px] uppercase tracking-[0.25em] text-orange-500">
-            <div className="flex flex-1 items-center gap-6">
-              {['A', 'B', 'C', 'D'].map((label, idx) => (
-                <div
-                  key={label}
-                  className="flex items-center gap-2 border border-orange-700/70 bg-black/80 px-3 py-2"
+          {/* RIGHT CONTROL COLUMN — like terrain menu */}
+          <aside className="flex w-80 flex-shrink-0 flex-col border-l border-orange-500 text-[9px] uppercase tracking-[0.3em]">
+            {/* geographic panel */}
+            <div className="border-b border-orange-500 px-4 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span>Geographic Reference</span>
+                <Layers size={12} />
+              </div>
+              <div className="flex items-center justify-between text-[8px] text-orange-600">
+                <span>User: EX_9022X</span>
+                <span>Session: 86-01</span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto px-4 py-4 space-y-4">
+              {/* Import / export / playback row */}
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/mp4,video/webm"
+                  onChange={onFileInputChange}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-9 items-center justify-center gap-2 border border-orange-500 bg-black text-orange-300"
                 >
-                  <div className="h-4 w-6 border border-orange-600/80" />
-                  <div className="flex flex-col">
-                    <span>{label} • SLOT</span>
-                    <span className="text-[8px] text-orange-700">
-                      {idx === 0 ? 'LIVE INPUT' : 'EMPTY'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="ml-6 flex w-64 flex-col border border-orange-700/80 bg-black/90 px-3 py-2 text-[8px] leading-tight text-orange-500">
-              <span>// EX-DITHERA SCRIPT FRAGMENT</span>
-              <span>var city = landscape.chooseTerrain('dither')</span>
-              <span>for (var i = 0; i &lt; pixels; i++) {{'{'}} distributeError(); {{'}'}}</span>
-            </div>
-          </div>
-        </section>
+                  <ImageIcon size={12} /> Import
+                </button>
 
-        {/* RIGHT CONTROL TOWER */}
-        <aside className="flex w-80 flex-shrink-0 flex-col border-l border-orange-500/60 bg-gradient-to-b from-black via-zinc-950 to-black text-[11px]">
-          {/* tower title */}
-          <div className="border-b border-orange-500/60 px-4 py-3 text-[9px] uppercase tracking-[0.3em] text-orange-400">
-            <div className="flex items-center gap-2">
-              <Layers size={12} className="text-orange-400" />
-              <span>Dither Control Tower</span>
-            </div>
-          </div>
+                <button
+                  onClick={mediaType === 'video' ? togglePlayback : handleStaticExport}
+                  disabled={!sourceUrl}
+                  className={`flex h-9 items-center justify-center gap-2 border ${
+                    !sourceUrl
+                      ? 'border-orange-900 text-orange-900'
+                      : 'border-orange-500 text-orange-300'
+                  }`}
+                >
+                  {mediaType === 'video' ? (
+                    <>
+                      <Video size={11} /> {isPlaying ? 'Pause' : 'Play'}
+                    </>
+                  ) : (
+                    <>
+                      <Download size={11} /> Export
+                    </>
+                  )}
+                </button>
+              </div>
 
-          <div className="flex-1 overflow-auto px-4 py-4">
-            {/* IMPORT / TRANSPORT ROW */}
-            <div className="mb-5 grid grid-cols-3 gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/mp4,video/webm"
-                onChange={onFileInputChange}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex h-10 items-center justify-center gap-2 border border-orange-500/80 bg-black/80 text-[9px] font-semibold uppercase tracking-[0.25em] text-orange-300 shadow-[0_0_20px_rgba(255,115,0,0.5)]"
-              >
-                <ImageIcon size={12} /> Import
-              </button>
-              <button
-                onClick={mediaType === 'video' ? togglePlayback : handleStaticExport}
-                disabled={!sourceUrl}
-                className={`flex h-10 items-center justify-center gap-2 border text-[9px] font-semibold uppercase tracking-[0.25em] ${
-                  !sourceUrl
-                    ? 'border-orange-900/70 bg-black text-orange-900'
-                    : 'border-orange-500/80 bg-black/80 text-orange-300'
-                }`}
-              >
-                {mediaType === 'video' ? (
-                  <>
-                    <Video size={12} /> {isPlaying ? 'Pause' : 'Play'}
-                  </>
-                ) : (
-                  <>
-                    <Download size={12} /> Export
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleReset}
-                className="flex h-10 items-center justify-center gap-2 border border-orange-700/80 bg-black/80 text-[9px] font-semibold uppercase tracking-[0.25em] text-orange-300 hover:bg-orange-900/40"
-              >
-                <RotateCcw size={12} /> Reset
-              </button>
-            </div>
-
-            {/* VIDEO RECORD ROW */}
-            {mediaType === 'video' && (
-              <div className="mb-5">
+              {mediaType === 'video' && (
                 <button
                   onClick={toggleRecording}
                   disabled={!sourceUrl}
-                  className={`flex w-full items-center justify-center gap-2 border px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.3em] ${
+                  className={`flex w-full items-center justify-center gap-2 border px-3 py-2 ${
                     !sourceUrl
-                      ? 'border-orange-900/70 bg-black text-orange-900'
+                      ? 'border-orange-900 text-orange-900'
                       : isRecording
-                      ? 'border-red-500 bg-red-600 text-black animate-pulse'
-                      : 'border-orange-500/80 bg-black/80 text-orange-300'
+                      ? 'border-red-500 bg-red-600 text-black'
+                      : 'border-orange-500 text-orange-300'
                   }`}
                 >
                   {isRecording ? (
@@ -964,124 +940,182 @@ export default function App() {
                     </>
                   )}
                 </button>
-              </div>
-            )}
+              )}
 
-            {/* ENGINE SELECTION – mimics terrain menu */}
-            <div className="mb-4 border border-orange-700/80 bg-black/80 p-3">
-              <div className="mb-2 text-[9px] uppercase tracking-[0.3em] text-orange-400">
-                Engine Bank
-              </div>
-              <select
-                value={selectedCategory}
-                onChange={e => setSelectedCategory(e.target.value as keyof typeof ALGORITHM_CATEGORIES)}
-                className="mb-2 w-full border border-orange-800 bg-black/80 px-2 py-1 text-[10px] text-orange-200 outline-none focus:border-orange-400"
+              <button
+                onClick={handleReset}
+                className="flex w-full items-center justify-center gap-2 border border-orange-600 px-3 py-2 text-orange-300"
               >
-                {Object.keys(ALGORITHM_CATEGORIES).map(cat => (
-                  <option key={cat}>{cat}</option>
-                ))}
-              </select>
-              <select
-                value={style}
-                onChange={e => setStyle(e.target.value)}
-                className="w-full border border-orange-800 bg-black/80 px-2 py-1 text-[10px] text-orange-200 outline-none focus:border-orange-400"
-              >
-                {availableStyles.map(s => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </div>
+                <RotateCcw size={11} /> Reset Parameters
+              </button>
 
-            {/* SCALE / PATTERN */}
-            <div className="mb-4 border border-orange-700/80 bg-black/80 p-3">
-              <div className="mb-2 text-[9px] uppercase tracking-[0.3em] text-orange-400">
-                Grid Geometry
-              </div>
-              <ControlGroup label="Pixel Scale" value={scale} min={1} max={20} onChange={setScale} />
-              <ControlGroup
-                label="Pattern Scale"
-                value={lineScale}
-                min={1}
-                max={50}
-                onChange={setLineScale}
-              />
-              <ControlGroup label="Depth Offset" value={depth} min={0} max={20} onChange={setDepth} />
-            </div>
+              {/* Terrain-type buttons (algorithm categories) */}
+              <div className="border border-orange-600 p-3">
+                <div className="mb-2 text-orange-400">Terrain Type</div>
+                <div className="space-y-1">
+                  {Object.keys(ALGORITHM_CATEGORIES).map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() =>
+                        setSelectedCategory(cat as keyof typeof ALGORITHM_CATEGORIES)
+                      }
+                      className={`flex w-full items-center justify-between border px-3 py-1 ${
+                        selectedCategory === cat
+                          ? 'border-orange-400 bg-orange-900/30'
+                          : 'border-orange-700'
+                      }`}
+                    >
+                      <span>{cat}</span>
+                      <span className="text-[8px] text-orange-500">
+                        {selectedCategory === cat ? 'ACTIVE' : ''}
+                      </span>
+                    </button>
+                  ))}
+                </div>
 
-            {/* PALETTE */}
-            <div className="mb-4 border border-orange-700/80 bg-black/80 p-3">
-              <div className="mb-2 text-[9px] uppercase tracking-[0.3em] text-orange-400">
-                Color Pipeline
+                <div className="mt-3 text-[8px] text-orange-500">Algorithm</div>
+                <select
+                  value={style}
+                  onChange={e => setStyle(e.target.value)}
+                  className="mt-1 w-full border border-orange-700 bg-black px-2 py-1 text-[9px] text-orange-200 outline-none"
+                >
+                  {availableStyles.map(s => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
               </div>
-              <select
-                value={paletteCategory}
-                onChange={e => {
-                  setPaletteCategory(e.target.value as keyof typeof PALETTE_PRESETS);
-                  setPaletteIdx(0);
-                }}
-                className="mb-3 w-full border border-orange-800 bg-black/80 px-2 py-1 text-[10px] text-orange-200 outline-none focus:border-orange-400"
-              >
-                {paletteNames.map(p => (
-                  <option key={p}>{p}</option>
-                ))}
-              </select>
-              <div className="space-y-2">
-                {(PALETTE_PRESETS[paletteCategory] || []).map((pal, idx) => (
+
+              {/* Basic dials */}
+              <div className="border border-orange-600 p-3">
+                <div className="mb-2 text-orange-400">Basic Dials</div>
+                <ControlGroup label="Pixel Scale" value={scale} min={1} max={20} onChange={setScale} />
+                <ControlGroup
+                  label="Pattern Scale"
+                  value={lineScale}
+                  min={1}
+                  max={50}
+                  onChange={setLineScale}
+                />
+                <ControlGroup
+                  label="Depth Offset"
+                  value={depth}
+                  min={0}
+                  max={20}
+                  onChange={setDepth}
+                />
+                <ControlGroup
+                  label="Threshold"
+                  value={threshold}
+                  min={0}
+                  max={255}
+                  onChange={setThreshold}
+                />
+              </div>
+
+              {/* Color + Tone */}
+              <div className="border border-orange-600 p-3">
+                <div className="mb-2 text-orange-400">Color & Tone</div>
+
+                <div className="mb-2 text-[8px] text-orange-500">Palette Bank</div>
+                <select
+                  value={paletteCategory}
+                  onChange={e => {
+                    setPaletteCategory(e.target.value as keyof typeof PALETTE_PRESETS);
+                    setPaletteIdx(0);
+                  }}
+                  className="mb-2 w-full border border-orange-700 bg-black px-2 py-1 text-[9px] text-orange-200 outline-none"
+                >
+                  {paletteNames.map(p => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
+                <div className="mb-3 space-y-2">
+                  {(PALETTE_PRESETS[paletteCategory] || []).map((pal, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setPaletteIdx(idx)}
+                      className={`relative flex h-7 w-full overflow-hidden border ${
+                        paletteIdx === idx
+                          ? 'border-orange-400'
+                          : 'border-orange-700'
+                      }`}
+                    >
+                      <div className="absolute inset-0 flex">
+                        {pal.map((c, i) => (
+                          <div key={i} style={{ background: c }} className="flex-1" />
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <ControlGroup
+                  label="Contrast"
+                  value={contrast}
+                  min={0}
+                  max={100}
+                  onChange={setContrast}
+                />
+                <ControlGroup
+                  label="Midtones"
+                  value={midtones}
+                  min={0}
+                  max={100}
+                  onChange={setMidtones}
+                />
+                <ControlGroup
+                  label="Highlights"
+                  value={highlights}
+                  min={0}
+                  max={100}
+                  onChange={setHighlights}
+                />
+                <ControlGroup label="Bleed" value={bleed} min={0} max={100} onChange={setBleed} />
+                <ControlGroup label="Pre-Blur" value={blur} min={0} max={20} onChange={setBlur} />
+
+                <div className="mt-2 flex items-center justify-between">
+                  <span>Invert</span>
                   <button
-                    key={idx}
-                    onClick={() => setPaletteIdx(idx)}
-                    className={`relative flex h-7 w-full overflow-hidden border ${
-                      paletteIdx === idx
-                        ? 'border-orange-400 shadow-[0_0_20px_rgba(255,120,0,0.8)]'
-                        : 'border-orange-800'
+                    onClick={() => setInvert(i => !i)}
+                    className={`px-2 py-0.5 text-[8px] ${
+                      invert
+                        ? 'bg-orange-400 text-black'
+                        : 'border border-orange-700 text-orange-300'
                     }`}
                   >
-                    <div className="absolute inset-0 flex">
-                      {pal.map((c, i) => (
-                        <div key={i} style={{ background: c }} className="flex-1" />
-                      ))}
-                    </div>
+                    {invert ? 'On' : 'Off'}
                   </button>
-                ))}
+                </div>
               </div>
             </div>
+          </aside>
+        </div>
 
-            {/* TONE SHAPING */}
-            <div className="mb-4 border border-orange-700/80 bg-black/80 p-3">
-              <div className="mb-2 flex items-center justify-between text-[9px] uppercase tracking-[0.3em] text-orange-400">
-                <span>Tone Shaping</span>
-                <button
-                  onClick={() => setInvert(i => !i)}
-                  className={`px-2 py-0.5 text-[9px] ${
-                    invert
-                      ? 'bg-orange-400 text-black'
-                      : 'border border-orange-700 text-orange-400'
-                  }`}
-                >
-                  Invert
-                </button>
+        {/* BOTTOM BAR — file slots + code block */}
+        <footer className="flex flex-none items-center justify-between border-t border-orange-500 px-8 py-3 text-[8px] uppercase tracking-[0.3em]">
+          <div className="flex gap-3">
+            {['A', 'B', 'C', 'D'].map((slot, i) => (
+              <div
+                key={slot}
+                className="flex items-center gap-2 border border-orange-600 px-3 py-2"
+              >
+                <div className="h-4 w-6 border border-orange-500" />
+                <div className="flex flex-col">
+                  <span>{slot} Slot</span>
+                  <span className="text-[7px] text-orange-600">
+                    {i === 0 ? 'Active' : 'Empty'}
+                  </span>
+                </div>
               </div>
-              <ControlGroup label="Threshold" value={threshold} min={0} max={255} onChange={setThreshold} />
-              <ControlGroup label="Pre-Blur" value={blur} min={0} max={20} onChange={setBlur} />
-              <ControlGroup label="Contrast" value={contrast} min={0} max={100} onChange={setContrast} />
-              <ControlGroup label="Midtones" value={midtones} min={0} max={100} onChange={setMidtones} />
-              <ControlGroup
-                label="Highlights"
-                value={highlights}
-                min={0}
-                max={100}
-                onChange={setHighlights}
-              />
-              <ControlGroup label="Bleed" value={bleed} min={0} max={100} onChange={setBleed} />
-            </div>
-
-            <div className="pb-2 text-center text-[8px] uppercase tracking-[0.3em] text-orange-700">
-              Super Terrain 86 • EX Dithera HUD
-            </div>
+            ))}
           </div>
-        </aside>
-      </main>
+          <div className="ml-4 flex flex-col border border-orange-600 px-4 py-2 text-[7px] leading-tight text-orange-500">
+            <span>// terrain-script</span>
+            <span>var city = landscape.chooseTerrain('City');</span>
+            <span>for (var i = 0; i &lt; pixels; i++) {{'{'}} diffuseError(); {{'}'}}</span>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
-

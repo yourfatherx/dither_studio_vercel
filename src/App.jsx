@@ -58,34 +58,50 @@ const ALGORITHM_CATEGORIES = {
     'Sierra Lite': { divisor: 4, offsets: [[1, 0, 2], [-1, 1, 1], [0, 1, 1]] },
     Ostromoukhov: { type: 'variable', table: true },
   },
+
   'Ordered (Bitmap)': {
-    'Ordered 2x2': 2,
-    'Ordered 4x4': 4,
-    'Ordered 8x8': 8,
-    'Ordered 16x16': 16,
+    'Bayer 2x2': 2,
+    'Bayer 4x4': 4,
+    'Bayer 8x8': 8,
+    'Bayer 16x16': 16,
     'Knoll (Clustered)': 'knoll',
     'Horizontal Lines': 'hlines',
     'Vertical Lines': 'vlines',
     'Diagonal Lines': 'dlines',
   },
+
   Organic: {
     'Blue Noise': 'bluenoise',
     'White Noise': 'whitenoise',
-    'Voronoi Stippling': 'voronoi',
+    'Voronoi Stippling (Rough)': 'voronoi',
     'Stipple Pattern': 'stipple',
   },
+
   Modulation: {
     'Sine Wave X': { axis: 'x', wave: 'sine' },
     'Sine Wave Y': { axis: 'y', wave: 'sine' },
     'Circular Wave': { axis: 'radial', wave: 'sine' },
-    'Square Wave': { axis: 'x', wave: 'square' },
-    'Riemersma (Hilbert)': 'riemersma',
+    'Square Wave X': { axis: 'x', wave: 'square' },
+    'Riemersma (Snake Scan)': 'riemersma',
   },
+
   Pattern: {
-    Checkerboard: 'checker',
+    'Checkerboard': 'checker',
     'Grid Pattern': 'grid',
     'Random Dots': 'random',
     'Interleaved Gradient': 'gradient',
+  },
+
+  /* new category – glitch / FX options like in your screenshot */
+  'Retro / FX': {
+    'Glitch Vertical': 'glitchv',
+    'Glitch Horizontal': 'glitchh',
+    'Diagonal Shred': 'diagshred',
+    'Radial Burst': 'radialburst',
+    'Noise Field': 'noisefield',
+    'Sine Modulation X': 'sinexmod',
+    'Sine Modulation Y': 'sineymod',
+    'Topography Lines': 'topography',
   },
 };
 
@@ -96,7 +112,6 @@ const PALETTE_PRESETS = {
   ],
   Print: [['#000000', '#00ffff', '#ff00ff', '#ffff00', '#ffffff']],
 
-  /* 80s SUNSET / DISK STYLE */
   '80s Sunsets I': [
     ['#f5f9ff', '#8ad3ff', '#ffc56b', '#b4522f'],
     ['#fce9b1', '#ff9b3d', '#ff4b6c', '#432142'],
@@ -110,7 +125,6 @@ const PALETTE_PRESETS = {
     ['#fbe9d9', '#ffba62', '#ff5f7a', '#5c2a54'],
   ],
 
-  /* NEON DISKS */
   'Neon Disks': [
     ['#0dd4ff', '#ff3b7f', '#ff7b3b'],
     ['#ff8765', '#ff3b46', '#a3147f'],
@@ -124,7 +138,6 @@ const PALETTE_PRESETS = {
     ['#ffb36b', '#ff6b4b', '#7b2bff'],
   ],
 
-  /* HORIZON STRIPES */
   'Horizon Stripes': [
     ['#00191f', '#005f4d', '#ff8a3b', '#ffd849', '#f6f4f2'],
     ['#000424', '#001e5f', '#234aff', '#fdf5ff'],
@@ -140,7 +153,6 @@ const PALETTE_PRESETS = {
     ['#050812', '#00233d', '#004f7b', '#f2d770', '#ffffff'],
   ],
 
-  /* CONSTELLATION-LIKE VERTICAL GRADIENT SET */
   'Constellation Bars': [
     ['#ff3700', '#ff8e00', '#ffe94a', '#f7f0ff'],
     ['#00f0ff', '#00c47b', '#006b52', '#001611'],
@@ -219,7 +231,6 @@ const hexToRgb = hex => {
     : [0, 0, 0];
 };
 
-/* multilevel quantization helper */
 const quantizeToLevels = (val, levels) => {
   const L = Math.max(2, levels | 0);
   const clamped = Math.max(0, Math.min(255, val));
@@ -263,8 +274,8 @@ const processImage = (imageData, settings) => {
   }
 
   const adjusted = applyAdjustments(gray, { contrast, midtones, highlights, invert, threshold });
-
   const levels = Math.max(2, palette.length || 2);
+
   let dithered = applyDither(adjusted, scaledW, scaledH, style, lineScale, bleed, levels);
 
   if (depth > 0) dithered = applyDepth(dithered, scaledW, scaledH, depth);
@@ -364,7 +375,7 @@ const applyDither = (gray, w, h, style, lineScale, bleed, levels) => {
       const y = Math.floor(i / w);
       let jitter = 0;
       if (isMatrix && matrix) {
-        const t = matrix[y % size][x % size]; // 0–255
+        const t = matrix[y % size][x % size];
         jitter = (t - 127) * 0.6;
       } else {
         if (algo === 'hlines') jitter = y % lineScale < lineScale / 2 ? -60 : 60;
@@ -428,20 +439,66 @@ const applyDither = (gray, w, h, style, lineScale, bleed, levels) => {
     return output;
   }
 
-  if (category === 'Pattern') {
+  if (category === 'Pattern' || category === 'Retro / FX') {
     const output = new Uint8ClampedArray(w * h);
+
     for (let i = 0; i < w * h; i++) {
       const x = i % w;
       const y = Math.floor(i / w);
-      let factor = 1;
-      if (algo === 'checker') factor = (x + y) % 2 === 0 ? 1.1 : 0.9;
-      else if (algo === 'grid') factor = x % lineScale === 0 || y % lineScale === 0 ? 1.2 : 0.9;
-      else if (algo === 'random') factor = Math.random() > 0.5 ? 1.2 : 0.8;
-      else if (algo === 'gradient') factor = gray[i] > ((x * y) % 255) ? 1.1 : 0.9;
+      let g = gray[i];
 
-      const g = Math.max(0, Math.min(255, gray[i] * factor));
-      output[i] = quantizeToLevels(g, L);
+      switch (algo) {
+        case 'checker':
+          g *= (x + y) % 2 === 0 ? 1.1 : 0.9;
+          break;
+        case 'grid':
+          g *= (x % lineScale === 0 || y % lineScale === 0) ? 1.25 : 0.9;
+          break;
+        case 'random':
+          g *= Math.random() > 0.5 ? 1.2 : 0.8;
+          break;
+        case 'gradient':
+          g *= gray[i] > ((x * y) % 255) ? 1.15 : 0.85;
+          break;
+        /* FX / glitch modes */
+        case 'glitchv':
+          g += (x % (lineScale * 2) < lineScale ? 70 : -40) + (Math.random() - 0.5) * 40;
+          break;
+        case 'glitchh':
+          g += (y % (lineScale * 2) < lineScale ? 60 : -50) + (Math.random() - 0.5) * 50;
+          break;
+        case 'diagshred':
+          g += ((x + y) % (lineScale * 2) < lineScale ? 80 : -60);
+          break;
+        case 'radialburst': {
+          const cx = w / 2;
+          const cy = h / 2;
+          const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+          g += Math.sin(dist / (lineScale * 1.3)) * 120;
+          break;
+        }
+        case 'noisefield':
+          g += (Math.random() - 0.5) * 180;
+          break;
+        case 'sinexmod':
+          g += Math.sin(x / (lineScale * 0.7)) * 120;
+          break;
+        case 'sineymod':
+          g += Math.sin(y / (lineScale * 0.7)) * 120;
+          break;
+        case 'topography': {
+          const bands = Math.sin((y + x * 0.4) / (lineScale * 1.2));
+          g += bands * 110;
+          break;
+        }
+        default:
+          g *= 1;
+      }
+
+      const clamped = Math.max(0, Math.min(255, g));
+      output[i] = quantizeToLevels(clamped, L);
     }
+
     return output;
   }
 
@@ -542,11 +599,7 @@ export default function App() {
 
   const [paletteCategory, setPaletteCategory] = useState('CyberGB');
   const [paletteIdx, setPaletteIdx] = useState(0);
-  const [customStops, setCustomStops] = useState([
-    '#ff9a3c',
-    '#ff4b6c',
-    '#4a36ff',
-  ]);
+  const [customStops, setCustomStops] = useState(['#ff9a3c', '#ff4b6c', '#4a36ff']);
 
   const [contrast, setContrast] = useState(45);
   const [midtones, setMidtones] = useState(50);
@@ -789,11 +842,45 @@ export default function App() {
     if (mediaType === 'video' && !isPlaying) setIsPlaying(true);
   };
 
+  /* HIGH-RES EXPORT: re-run dithering at original mediaDims, not the preview size */
   const handleStaticExport = () => {
-    if (!canvasRef.current) return;
+    if (!mediaDims || !sourceUrl) return;
+
+    const source =
+      mediaType === 'video' ? hiddenVideoRef.current : hiddenImageRef.current;
+    if (!source) return;
+
+    const off = document.createElement('canvas');
+    off.width = mediaDims.w;
+    off.height = mediaDims.h;
+    const ctx = off.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    ctx.filter = `blur(${blur}px)`;
+    ctx.drawImage(source, 0, 0, mediaDims.w, mediaDims.h);
+    ctx.filter = 'none';
+
+    const imageData = ctx.getImageData(0, 0, mediaDims.w, mediaDims.h);
+
+    const result = processImage(imageData, {
+      scale,
+      style,
+      palette: currentPalette,
+      lineScale,
+      bleed,
+      contrast,
+      midtones,
+      highlights,
+      depth,
+      invert,
+      threshold,
+    });
+
+    ctx.putImageData(result, 0, 0);
+
     const link = document.createElement('a');
-    link.download = 'ex-dithera-frame.png';
-    link.href = canvasRef.current.toDataURL('image/png');
+    link.download = 'ex-dithera-fullres.png';
+    link.href = off.toDataURL('image/png');
     link.click();
   };
 
@@ -819,13 +906,7 @@ export default function App() {
     if (mediaType === 'video') setIsPlaying(p => !p);
   };
 
-  const ControlGroup = ({
-    label,
-    value,
-    min,
-    max,
-    onChange,
-  }) => (
+  const ControlGroup = ({ label, value, min, max, onChange }) => (
     <div className="mb-3">
       <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.22em]">
         <span className="text-orange-400">{label}</span>
@@ -848,9 +929,7 @@ export default function App() {
     setCustomStops(stops => stops.map((c, i) => (i === index ? color : c)));
   };
 
-  const addCustomStop = () => {
-    setCustomStops(stops => [...stops, '#ffffff']);
-  };
+  const addCustomStop = () => setCustomStops(stops => [...stops, '#ffffff']);
 
   const removeCustomStop = index => {
     setCustomStops(stops => {
@@ -925,7 +1004,7 @@ export default function App() {
             {sourceUrl ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between border border-orange-500 px-4 py-1 text-[8px] uppercase tracking-[0.3em]">
-                  <span>Cityscape Heightmap</span>
+                  <span>Dither Preview</span>
                   <span>{mediaType === 'video' ? 'Live Stream' : 'Static Frame'}</span>
                 </div>
 
@@ -1010,7 +1089,7 @@ export default function App() {
                     </>
                   ) : (
                     <>
-                      <Download size={11} /> Export
+                      <Download size={11} /> Export HQ
                     </>
                   )}
                 </button>
@@ -1069,7 +1148,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <div className="mt-3 text-[8px] text-orange-500">Algorithm</div>
+                <div className="mt-3 text-[8px] text-orange-500">Style</div>
                 <select
                   value={style}
                   onChange={e => setStyle(e.target.value)}
@@ -1248,7 +1327,7 @@ export default function App() {
           </div>
           <div className="ml-4 flex flex-col border border-orange-600 px-4 py-2 text-[7px] leading-tight text-orange-500">
             <span>// DITHER SCRIPT</span>
-            <span>var ALGORITHM = dither.chooseAlgorithm('glitch');</span>
+            <span>var ALGO = dither.chooseAlgorithm('retro_fx');</span>
             <span>for (var i = 0; i &lt; pixels; i++) {'{'} diffuseError(); {'}'}</span>
           </div>
         </footer>

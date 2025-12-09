@@ -89,17 +89,77 @@ const ALGORITHM_CATEGORIES = {
   },
 };
 
-const PALETTE_PRESETS = {
+const PALETTE_PRESETS: Record<string, string[][]> = {
   CyberGB: [
     ['#020a00', '#4c7f00', '#9bbc0f', '#e5ff8a'],
     ['#000000', '#9bbc0f', '#e5ff8a'],
   ],
   Print: [['#000000', '#00ffff', '#ff00ff', '#ffff00', '#ffffff']],
+
+  /* 80s SUNSET DISKS (first reference image) */
+  '80s Sunsets I': [
+    ['#f5f9ff', '#8ad3ff', '#ffc56b', '#b4522f'],
+    ['#fce9b1', '#ff9b3d', '#ff4b6c', '#432142'],
+    ['#e2f2ff', '#8fd2ff', '#c38bff', '#412a6d'],
+    ['#f5f4f0', '#c9c8d2', '#f3b36a', '#7b422d'],
+    ['#e4f5ff', '#8fb9ff', '#3c5dd7', '#050923'],
+    ['#e5fbff', '#8fd4ff', '#ffb86c', '#7f2a37'],
+    ['#e5f2ff', '#9cd3ff', '#8d79ff', '#382666'],
+    ['#f9f1de', '#f0c679', '#f26d3e', '#3b1416'],
+    ['#f6f3ff', '#bd9cff', '#201733', '#05040c'],
+    ['#fbe9d9', '#ffba62', '#ff5f7a', '#5c2a54'],
+  ],
+
+  /* NEON DISKS (second reference image) */
+  'Neon Disks': [
+    ['#0dd4ff', '#ff3b7f', '#ff7b3b'],
+    ['#ff8765', '#ff3b46', '#a3147f'],
+    ['#ff6fd5', '#ff3b7b', '#ffae3b'],
+    ['#ff9c38', '#ff4338', '#ff007a'],
+    ['#ff8ef7', '#ff4eb7', '#4a36ff'],
+    ['#28ffc8', '#00b6ff', '#2739ff'],
+    ['#00e2ff', '#007dfa', '#281b7f'],
+    ['#c28dff', '#7d4cff', '#2f154f'],
+    ['#00ffb2', '#00b4ff', '#7b3bff'],
+    ['#ffb36b', '#ff6b4b', '#7b2bff'],
+  ],
+
+  /* HORIZON STRIPES (third reference image) */
+  'Horizon Stripes': [
+    ['#00191f', '#005f4d', '#ff8a3b', '#ffd849', '#f6f4f2'],
+    ['#000424', '#001e5f', '#234aff', '#fdf5ff'],
+    ['#0a0a24', '#0060a8', '#ffc14f', '#ffeedd'],
+    ['#004451', '#00a5cb', '#fce386', '#ffffff'],
+    ['#00091d', '#003d82', '#ff8c6d', '#fff7ea'],
+    ['#000010', '#0c1f50', '#ee4038', '#ffaf4f'],
+    ['#04051f', '#001a4d', '#003f96', '#ffdf6d'],
+    ['#000000', '#1f0010', '#ff4333', '#ffc14f', '#fff8e6'],
+    ['#05081f', '#001e3d', '#00629c', '#00ffd4'],
+    ['#000013', '#201949', '#ff6a4f', '#f5f3ff'],
+    ['#00020b', '#004475', '#ff831e', '#fff5e3'],
+    ['#050812', '#00233d', '#004f7b', '#f2d770', '#ffffff'],
+  ],
+
+  /* CONSTELLATION BARS (fourth reference image) */
+  'Constellation Bars': [
+    ['#ff3700', '#ff8e00', '#ffe94a', '#f7f0ff'],
+    ['#00f0ff', '#00c47b', '#006b52', '#001611'],
+    ['#0039ff', '#2ac7ff', '#78ffeb', '#f5fff9'],
+    ['#ff42c0', '#ff8fd7', '#ffe2ff', '#f7f7ff'],
+    ['#f7a000', '#ffcf54', '#ffeab3', '#fffdf8'],
+    ['#d2e5ff', '#88bfff', '#4a7dff', '#02081c'],
+    ['#006bff', '#00a6ff', '#ffb347', '#ffe8c2'],
+    ['#5c17ff', '#a64bff', '#ff5cd6', '#fff0ff'],
+    ['#ff9934', '#ffcf4a', '#ffe7a8', '#ffffff'],
+    ['#7f80ff', '#a49fff', '#e3e0ff', '#ffffff'],
+    ['#004dff', '#00b3ff', '#00ffe6', '#f5ffff'],
+    ['#00ffc8', '#00b6ff', '#5a64ff', '#100015'],
+  ],
 };
 
 /* ---------------------------- 2. HELPERS ----------------------------- */
 
-const getBayerMatrix = (size) => {
+const getBayerMatrix = (size: number) => {
   if (size === 2) return [[0, 2], [3, 1]].map(r => r.map(v => v * 64));
   if (size === 4)
     return [
@@ -142,7 +202,7 @@ const getKnollMatrix = () =>
     [5, 7, 3, 1],
   ].map(r => r.map(v => v * 16));
 
-const generateBlueNoise = (w, h) => {
+const generateBlueNoise = (w: number, h: number) => {
   const noise = new Uint8ClampedArray(w * h);
   for (let i = 0; i < noise.length; i++) {
     const x = i % w;
@@ -152,7 +212,7 @@ const generateBlueNoise = (w, h) => {
   return noise;
 };
 
-const hexToRgb = (hex) => {
+const hexToRgb = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
@@ -161,7 +221,7 @@ const hexToRgb = (hex) => {
 
 /* ------------------------ 3. IMAGE PROCESSING ------------------------ */
 
-const processImage = (imageData, settings) => {
+const processImage = (imageData: ImageData, settings: any) => {
   const { width, height, data } = imageData;
   const {
     scale,
@@ -217,8 +277,8 @@ const processImage = (imageData, settings) => {
 };
 
 const applyAdjustments = (
-  gray,
-  { contrast, midtones, highlights, invert, threshold },
+  gray: Uint8ClampedArray,
+  { contrast, midtones, highlights, invert, threshold }: any,
 ) => {
   const adjusted = new Uint8ClampedArray(gray);
   const lut = new Uint8ClampedArray(256);
@@ -244,19 +304,19 @@ const applyAdjustments = (
 };
 
 const applyDither = (
-  gray,
-  w,
-  h,
-  style,
-  lineScale,
-  bleed,
+  gray: Uint8ClampedArray,
+  w: number,
+  h: number,
+  style: string,
+  lineScale: number,
+  bleed: number,
 ) => {
-  let algo = null;
-  let category = null;
+  let algo: any = null;
+  let category: string | null = null;
 
   for (const [cat, algos] of Object.entries(ALGORITHM_CATEGORIES)) {
-    if (algos[style]) {
-      algo = algos[style];
+    if ((algos as any)[style]) {
+      algo = (algos as any)[style];
       category = cat;
       break;
     }
@@ -363,9 +423,9 @@ const applyDither = (
   return gray;
 };
 
-const applyOstromoukhov = (gray, w, h) => {
+const applyOstromoukhov = (gray: Uint8ClampedArray, w: number, h: number) => {
   const pixels = new Float32Array(gray);
-  const getCoefficients = (val) => {
+  const getCoefficients = (val: number) => {
     const v = val / 255;
     if (v < 0.25) return [13, 0, 5];
     if (v < 0.5) return [6, 13, 0];
@@ -390,7 +450,7 @@ const applyOstromoukhov = (gray, w, h) => {
   return Uint8ClampedArray.from(pixels.map(v => Math.max(0, Math.min(255, v))));
 };
 
-const applyRiemersma = (gray, w, h, intensity) => {
+const applyRiemersma = (gray: Uint8ClampedArray, w: number, h: number, intensity: number) => {
   const output = new Uint8ClampedArray(gray);
   const pixels = new Float32Array(gray);
   let error = 0;
@@ -410,7 +470,7 @@ const applyRiemersma = (gray, w, h, intensity) => {
   return output;
 };
 
-const applyDepth = (dithered, w, h, depth) => {
+const applyDepth = (dithered: Uint8ClampedArray, w: number, h: number, depth: number) => {
   const output = new Uint8ClampedArray(dithered);
   const offset = Math.floor(depth);
   if (offset === 0) return dithered;
@@ -422,7 +482,7 @@ const applyDepth = (dithered, w, h, depth) => {
   return output;
 };
 
-const applyPalette = (gray, colors) => {
+const applyPalette = (gray: Uint8ClampedArray, colors: [number, number, number][]) => {
   const output = new Uint8ClampedArray(gray.length * 3);
   const stops = Math.max(1, colors.length - 1);
   for (let i = 0; i < gray.length; i++) {
@@ -441,19 +501,24 @@ const applyPalette = (gray, colors) => {
 /* --------------------------- 4. MAIN APP ----------------------------- */
 
 export default function App() {
-  const [mediaType, setMediaType] = useState(null);
-  const [sourceUrl, setSourceUrl] = useState(null);
+  const [mediaType, setMediaType] = useState<null | 'image' | 'video'>(null);
+  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  const [mediaDims, setMediaDims] = useState(null);
+  const [mediaDims, setMediaDims] = useState<{ w: number; h: number } | null>(null);
 
   const [scale, setScale] = useState(4);
   const [style, setStyle] = useState('Atkinson');
-  const [selectedCategory, setSelectedCategory] = useState('Error Diffusion');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Error Diffusion');
 
-  const [paletteCategory, setPaletteCategory] = useState('CyberGB');
+  const [paletteCategory, setPaletteCategory] = useState<string>('CyberGB');
   const [paletteIdx, setPaletteIdx] = useState(0);
+  const [customStops, setCustomStops] = useState<string[]>([
+    '#ff9a3c',
+    '#ff4b6c',
+    '#4a36ff',
+  ]);
 
   const [contrast, setContrast] = useState(45);
   const [midtones, setMidtones] = useState(50);
@@ -466,24 +531,28 @@ export default function App() {
   const [depth, setDepth] = useState(0);
   const [invert, setInvert] = useState(false);
 
-  const canvasRef = useRef(null);
-  const hiddenVideoRef = useRef(null);
-  const hiddenImageRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const workspaceRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const recordedChunksRef = useRef([]);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const hiddenImageRef = useRef<HTMLImageElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   const availableStyles = useMemo(
-    () => Object.keys(ALGORITHM_CATEGORIES[selectedCategory] || {}),
+    () => Object.keys(ALGORITHM_CATEGORIES[selectedCategory as keyof typeof ALGORITHM_CATEGORIES] || {}),
     [selectedCategory],
   );
 
   const currentPalette = useMemo(() => {
+    if (paletteCategory === 'Custom') {
+      const raw = (customStops.length ? customStops : ['#ffffff', '#000000']);
+      return raw.map(hexToRgb);
+    }
     const cat = PALETTE_PRESETS[paletteCategory] || PALETTE_PRESETS.CyberGB;
     const raw = cat[paletteIdx] || cat[0];
     return raw.map(hexToRgb);
-  }, [paletteCategory, paletteIdx]);
+  }, [paletteCategory, paletteIdx, customStops]);
 
   useEffect(() => {
     if (availableStyles.length > 0 && !availableStyles.includes(style)) {
@@ -491,7 +560,7 @@ export default function App() {
     }
   }, [availableStyles, style]);
 
-  const handleFileUpload = (file) => {
+  const handleFileUpload = (file: File | null) => {
     if (!file) return;
     setIsPlaying(false);
     setIsRecording(false);
@@ -508,13 +577,13 @@ export default function App() {
     }
   };
 
-  const onFileInputChange = (e) => {
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleFileUpload(e.target.files?.[0] || null);
   };
 
   // auto-fit into viewport (no extra zoom)
   const computeRenderSize = useCallback(
-    (intrinsicW, intrinsicH) => {
+    (intrinsicW: number, intrinsicH: number) => {
       const workspace = workspaceRef.current;
       if (!workspace) return { w: intrinsicW, h: intrinsicH };
       const padding = 96;
@@ -535,8 +604,8 @@ export default function App() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let srcW, srcH;
-    let source;
+    let srcW: number, srcH: number;
+    let source: HTMLVideoElement | HTMLImageElement | null;
 
     if (mediaType === 'video') {
       const video = hiddenVideoRef.current;
@@ -617,7 +686,7 @@ export default function App() {
     if (!video) return;
 
     if (isPlaying) {
-      let id;
+      let id: number;
       const loop = () => {
         processFrame();
         id = requestAnimationFrame(loop);
@@ -646,7 +715,7 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize);
   }, [sourceUrl, processFrame]);
 
-  const handleDrop = (e) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     handleFileUpload(e.dataTransfer.files?.[0] || null);
   };
@@ -669,8 +738,8 @@ export default function App() {
     }
 
     const stream = canvas.captureStream(30);
-    let options = { mimeType: 'video/webm;codecs=vp9' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType || '')) {
+    let options: MediaRecorderOptions = { mimeType: 'video/webm;codecs=vp9' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType!)) {
       options = { mimeType: 'video/webm' };
     }
 
@@ -715,6 +784,7 @@ export default function App() {
     setStyle('Atkinson');
     setPaletteCategory('CyberGB');
     setPaletteIdx(0);
+    setCustomStops(['#ff9a3c', '#ff4b6c', '#4a36ff']);
     setMidtones(50);
     setHighlights(50);
     setLineScale(4);
@@ -724,12 +794,35 @@ export default function App() {
     if (mediaType === 'video') setIsPlaying(p => !p);
   };
 
+  const paletteNames = [...Object.keys(PALETTE_PRESETS), 'Custom'];
+
+  const updateCustomStop = (index: number, color: string) => {
+    setCustomStops(stops => stops.map((c, i) => (i === index ? color : c)));
+  };
+
+  const addCustomStop = () => {
+    setCustomStops(stops => [...stops, '#ffffff']);
+  };
+
+  const removeCustomStop = (index: number) => {
+    setCustomStops(stops => {
+      if (stops.length <= 2) return stops; // keep at least two stops
+      return stops.filter((_, i) => i !== index);
+    });
+  };
+
   const ControlGroup = ({
     label,
     value,
     min,
     max,
     onChange,
+  }: {
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    onChange: (v: number) => void;
   }) => (
     <div className="mb-3">
       <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.22em]">
@@ -746,8 +839,6 @@ export default function App() {
       />
     </div>
   );
-
-  const paletteNames = Object.keys(PALETTE_PRESETS);
 
   return (
     <div className="h-screen bg-black text-orange-300 font-mono">
@@ -782,7 +873,7 @@ export default function App() {
       />
 
       <div className="flex h-full flex-col">
-        {/* TOP BAR — like EDITING CURRENT PARAMETER */}
+        {/* TOP BAR */}
         <header className="flex flex-none items-center justify-between border-b border-orange-500 px-8 py-3 text-[9px] uppercase tracking-[0.35em]">
           <div className="flex items-center gap-4">
             <div className="flex h-8 w-8 items-center justify-center border border-orange-500">
@@ -814,16 +905,13 @@ export default function App() {
           >
             {sourceUrl ? (
               <div className="flex flex-col gap-2">
-                {/* city graph bar mimic */}
                 <div className="flex items-center justify-between border border-orange-500 px-4 py-1 text-[8px] uppercase tracking-[0.3em]">
                   <span>Cityscape Heightmap</span>
                   <span>{mediaType === 'video' ? 'Live Stream' : 'Static Frame'}</span>
                 </div>
 
                 <div className="relative border border-orange-500 p-3">
-                  {/* outer grid rectangle */}
                   <div className="pointer-events-none absolute inset-3 border border-orange-700" />
-                  {/* subtle radial glow */}
                   <div className="pointer-events-none absolute inset-3">
                     <div className="h-full w-full bg-[radial-gradient(circle_at_top,_rgba(255,153,0,0.18),_transparent_70%)]" />
                   </div>
@@ -858,9 +946,8 @@ export default function App() {
             )}
           </section>
 
-          {/* RIGHT CONTROL COLUMN — like terrain menu */}
+          {/* RIGHT CONTROL COLUMN */}
           <aside className="flex w-80 flex-shrink-0 flex-col border-l border-orange-500 text-[9px] uppercase tracking-[0.3em]">
-            {/* geographic panel */}
             <div className="border-b border-orange-500 px-4 py-3">
               <div className="mb-2 flex items-center justify-between">
                 <span>TOOLS AREA</span>
@@ -941,14 +1028,14 @@ export default function App() {
                 <RotateCcw size={11} /> Reset Parameters
               </button>
 
-              {/* Terrain-type buttons (algorithm categories) */}
+              {/* Algorithm categories */}
               <div className="border border-orange-600 p-3">
                 <div className="mb-2 text-orange-400">DITHERING ALGORITHMS</div>
                 <div className="space-y-1">
                   {Object.keys(ALGORITHM_CATEGORIES).map(cat => (
                     <button
                       key={cat}
-                       onClick={() => setSelectedCategory(cat)}
+                      onClick={() => setSelectedCategory(cat)}
                       className={`flex w-full items-center justify-between border px-3 py-1 ${
                         selectedCategory === cat
                           ? 'border-orange-400 bg-orange-900/30'
@@ -1010,7 +1097,8 @@ export default function App() {
                 <select
                   value={paletteCategory}
                   onChange={e => {
-                     setPaletteCategory(e.target.value);
+                    const value = e.target.value;
+                    setPaletteCategory(value);
                     setPaletteIdx(0);
                   }}
                   className="mb-2 w-full border border-orange-700 bg-black px-2 py-1 text-[9px] text-orange-200 outline-none"
@@ -1019,25 +1107,65 @@ export default function App() {
                     <option key={p}>{p}</option>
                   ))}
                 </select>
-                <div className="mb-3 space-y-2">
-                  {(PALETTE_PRESETS[paletteCategory] || []).map((pal, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setPaletteIdx(idx)}
-                      className={`relative flex h-7 w-full overflow-hidden border ${
-                        paletteIdx === idx
-                          ? 'border-orange-400'
-                          : 'border-orange-700'
-                      }`}
-                    >
-                      <div className="absolute inset-0 flex">
-                        {pal.map((c, i) => (
-                          <div key={i} style={{ background: c }} className="flex-1" />
-                        ))}
+
+                {/* Preset palettes */}
+                {paletteCategory !== 'Custom' && (
+                  <div className="mb-3 space-y-2">
+                    {(PALETTE_PRESETS[paletteCategory] || []).map((pal, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setPaletteIdx(idx)}
+                        className={`relative flex h-7 w-full overflow-hidden border ${
+                          paletteIdx === idx
+                            ? 'border-orange-400'
+                            : 'border-orange-700'
+                        }`}
+                      >
+                        <div className="absolute inset-0 flex">
+                          {pal.map((c, i) => (
+                            <div key={i} style={{ background: c }} className="flex-1" />
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Custom palette editor */}
+                {paletteCategory === 'Custom' && (
+                  <div className="mb-3 space-y-2">
+                    {customStops.map((color, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between gap-2 border border-orange-700 px-2 py-1"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8px]">Stop {idx + 1}</span>
+                          <input
+                            type="color"
+                            value={color}
+                            onChange={e => updateCustomStop(idx, e.target.value)}
+                            className="h-6 w-10 cursor-pointer border border-orange-500 bg-transparent"
+                          />
+                        </div>
+                        {customStops.length > 2 && (
+                          <button
+                            onClick={() => removeCustomStop(idx)}
+                            className="text-[8px] text-orange-500"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
+                    ))}
+                    <button
+                      onClick={addCustomStop}
+                      className="mt-1 w-full border border-orange-600 px-2 py-1 text-[8px]"
+                    >
+                      + Add Stop
                     </button>
-                  ))}
-                </div>
+                  </div>
+                )}
 
                 <ControlGroup
                   label="Contrast"
@@ -1081,7 +1209,7 @@ export default function App() {
           </aside>
         </div>
 
-        {/* BOTTOM BAR — file slots + code block */}
+        {/* BOTTOM BAR */}
         <footer className="flex flex-none items-center justify-between border-t border-orange-500 px-8 py-3 text-[8px] uppercase tracking-[0.3em]">
           <div className="flex gap-3">
             {['A', 'B', 'C', 'D'].map((slot, i) => (
@@ -1101,7 +1229,7 @@ export default function App() {
           </div>
           <div className="ml-4 flex flex-col border border-orange-600 px-4 py-2 text-[7px] leading-tight text-orange-500">
             <span>// DITHER SCRIPT</span>
-            <span>var ALGORITHM = dither.choosealgorithm('glitch');</span>
+            <span>var ALGORITHM = dither.chooseAlgorithm('glitch');</span>
             <span>for (var i = 0; i &lt; pixels; i++) {'{'} diffuseError(); {'}'}</span>
           </div>
         </footer>

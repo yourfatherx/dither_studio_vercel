@@ -791,14 +791,14 @@ export default function App() {
             <div className="flex flex-col gap-1">
               <span className="text-[9px] text-orange-400">Editing Current Parameter</span>
               <span className="text-[9px] text-orange-600">
-                No. Buildings: {mediaDims ? `${mediaDims.w}×${mediaDims.h}` : '—'}
+                No. Dead Pixels: {mediaDims ? `${mediaDims.w}×${mediaDims.h}` : '—'}
               </span>
             </div>
           </div>
           <div className="flex items-end gap-2 text-[9px]">
             <div className="flex flex-col items-end gap-1">
-              <span className="text-orange-500">SUPER TERRAIN 86</span>
-              <span className="text-orange-700">DITHER CARTOGRAPHY MODULE</span>
+              <span className="text-orange-500">DITHER MACHINE 96</span>
+              <span className="text-orange-700">DITHERING ENGINE</span>
             </div>
           </div>
         </header>
@@ -845,7 +845,7 @@ export default function App() {
                   <Upload size={30} />
                 </div>
                 <p className="uppercase tracking-[0.4em] text-orange-400">
-                  Drop Media Into Terrain Grid
+                  Drop Media Into Workspace
                 </p>
                 <p className="mt-3 text-orange-600">
                   Drag an image or video here, or use the{' '}
@@ -863,7 +863,7 @@ export default function App() {
             {/* geographic panel */}
             <div className="border-b border-orange-500 px-4 py-3">
               <div className="mb-2 flex items-center justify-between">
-                <span>Geographic Reference</span>
+                <span>TOOLS AREA</span>
                 <Layers size={12} />
               </div>
               <div className="flex items-center justify-between text-[8px] text-orange-600">
@@ -943,7 +943,7 @@ export default function App() {
 
               {/* Terrain-type buttons (algorithm categories) */}
               <div className="border border-orange-600 p-3">
-                <div className="mb-2 text-orange-400">Terrain Type</div>
+                <div className="mb-2 text-orange-400">DITHERING ALGORITHMS</div>
                 <div className="space-y-1">
                   {Object.keys(ALGORITHM_CATEGORIES).map(cat => (
                     <button
@@ -1100,8 +1100,8 @@ export default function App() {
             ))}
           </div>
           <div className="ml-4 flex flex-col border border-orange-600 px-4 py-2 text-[7px] leading-tight text-orange-500">
-            <span>// terrain-script</span>
-            <span>var city = landscape.chooseTerrain('City');</span>
+            <span>// DITHER SCRIPT</span>
+            <span>var ALGORITHM = dither.choosealgorithm('glitch');</span>
             <span>for (var i = 0; i &lt; pixels; i++) {'{'} diffuseError(); {'}'}</span>
           </div>
         </footer>

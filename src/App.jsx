@@ -89,7 +89,7 @@ const ALGORITHM_CATEGORIES = {
   },
 };
 
-const PALETTE_PRESETS: Record<string, string[][]> = {
+const PALETTE_PRESETS = {
   CyberGB: [
     ['#020a00', '#4c7f00', '#9bbc0f', '#e5ff8a'],
     ['#000000', '#9bbc0f', '#e5ff8a'],
@@ -159,7 +159,7 @@ const PALETTE_PRESETS: Record<string, string[][]> = {
 
 /* ---------------------------- 2. HELPERS ----------------------------- */
 
-const getBayerMatrix = (size: number) => {
+const getBayerMatrix = (size) => {
   if (size === 2) return [[0, 2], [3, 1]].map(r => r.map(v => v * 64));
   if (size === 4)
     return [
@@ -202,7 +202,7 @@ const getKnollMatrix = () =>
     [5, 7, 3, 1],
   ].map(r => r.map(v => v * 16));
 
-const generateBlueNoise = (w: number, h: number) => {
+const generateBlueNoise = (w, h) => {
   const noise = new Uint8ClampedArray(w * h);
   for (let i = 0; i < noise.length; i++) {
     const x = i % w;
@@ -212,7 +212,7 @@ const generateBlueNoise = (w: number, h: number) => {
   return noise;
 };
 
-const hexToRgb = (hex: string): [number, number, number] => {
+const hexToRgb = (hex) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result
     ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
@@ -221,7 +221,7 @@ const hexToRgb = (hex: string): [number, number, number] => {
 
 /* ------------------------ 3. IMAGE PROCESSING ------------------------ */
 
-const processImage = (imageData: ImageData, settings: any) => {
+const processImage = (imageData, settings) => {
   const { width, height, data } = imageData;
   const {
     scale,
@@ -277,8 +277,8 @@ const processImage = (imageData: ImageData, settings: any) => {
 };
 
 const applyAdjustments = (
-  gray: Uint8ClampedArray,
-  { contrast, midtones, highlights, invert, threshold }: any,
+  gray,
+  { contrast, midtones, highlights, invert, threshold },
 ) => {
   const adjusted = new Uint8ClampedArray(gray);
   const lut = new Uint8ClampedArray(256);
@@ -304,19 +304,19 @@ const applyAdjustments = (
 };
 
 const applyDither = (
-  gray: Uint8ClampedArray,
-  w: number,
-  h: number,
-  style: string,
-  lineScale: number,
-  bleed: number,
+  gray,
+  w,
+  h,
+  style,
+  lineScale,
+  bleed,
 ) => {
-  let algo: any = null;
-  let category: string | null = null;
+  let algo = null;
+  let category = null;
 
   for (const [cat, algos] of Object.entries(ALGORITHM_CATEGORIES)) {
-    if ((algos as any)[style]) {
-      algo = (algos as any)[style];
+    if (algos[style]) {
+      algo = algos[style];
       category = cat;
       break;
     }
@@ -423,9 +423,9 @@ const applyDither = (
   return gray;
 };
 
-const applyOstromoukhov = (gray: Uint8ClampedArray, w: number, h: number) => {
+const applyOstromoukhov = (gray, w, h) => {
   const pixels = new Float32Array(gray);
-  const getCoefficients = (val: number) => {
+  const getCoefficients = (val) => {
     const v = val / 255;
     if (v < 0.25) return [13, 0, 5];
     if (v < 0.5) return [6, 13, 0];
@@ -450,7 +450,7 @@ const applyOstromoukhov = (gray: Uint8ClampedArray, w: number, h: number) => {
   return Uint8ClampedArray.from(pixels.map(v => Math.max(0, Math.min(255, v))));
 };
 
-const applyRiemersma = (gray: Uint8ClampedArray, w: number, h: number, intensity: number) => {
+const applyRiemersma = (gray, w, h, intensity) => {
   const output = new Uint8ClampedArray(gray);
   const pixels = new Float32Array(gray);
   let error = 0;
@@ -470,7 +470,7 @@ const applyRiemersma = (gray: Uint8ClampedArray, w: number, h: number, intensity
   return output;
 };
 
-const applyDepth = (dithered: Uint8ClampedArray, w: number, h: number, depth: number) => {
+const applyDepth = (dithered, w, h, depth) => {
   const output = new Uint8ClampedArray(dithered);
   const offset = Math.floor(depth);
   if (offset === 0) return dithered;
@@ -482,7 +482,7 @@ const applyDepth = (dithered: Uint8ClampedArray, w: number, h: number, depth: nu
   return output;
 };
 
-const applyPalette = (gray: Uint8ClampedArray, colors: [number, number, number][]) => {
+const applyPalette = (gray, colors) => {
   const output = new Uint8ClampedArray(gray.length * 3);
   const stops = Math.max(1, colors.length - 1);
   for (let i = 0; i < gray.length; i++) {
@@ -501,20 +501,20 @@ const applyPalette = (gray: Uint8ClampedArray, colors: [number, number, number][
 /* --------------------------- 4. MAIN APP ----------------------------- */
 
 export default function App() {
-  const [mediaType, setMediaType] = useState<null | 'image' | 'video'>(null);
-  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState(null);
+  const [sourceUrl, setSourceUrl] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
 
-  const [mediaDims, setMediaDims] = useState<{ w: number; h: number } | null>(null);
+  const [mediaDims, setMediaDims] = useState(null);
 
   const [scale, setScale] = useState(4);
   const [style, setStyle] = useState('Atkinson');
-  const [selectedCategory, setSelectedCategory] = useState<string>('Error Diffusion');
+  const [selectedCategory, setSelectedCategory] = useState('Error Diffusion');
 
-  const [paletteCategory, setPaletteCategory] = useState<string>('CyberGB');
+  const [paletteCategory, setPaletteCategory] = useState('CyberGB');
   const [paletteIdx, setPaletteIdx] = useState(0);
-  const [customStops, setCustomStops] = useState<string[]>([
+  const [customStops, setCustomStops] = useState([
     '#ff9a3c',
     '#ff4b6c',
     '#4a36ff',
@@ -531,16 +531,16 @@ export default function App() {
   const [depth, setDepth] = useState(0);
   const [invert, setInvert] = useState(false);
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
-  const hiddenImageRef = useRef<HTMLImageElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const workspaceRef = useRef<HTMLDivElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
+  const canvasRef = useRef(null);
+  const hiddenVideoRef = useRef(null);
+  const hiddenImageRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const workspaceRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
   const availableStyles = useMemo(
-    () => Object.keys(ALGORITHM_CATEGORIES[selectedCategory as keyof typeof ALGORITHM_CATEGORIES] || {}),
+    () => Object.keys(ALGORITHM_CATEGORIES[selectedCategory] || {}),
     [selectedCategory],
   );
 
@@ -560,7 +560,7 @@ export default function App() {
     }
   }, [availableStyles, style]);
 
-  const handleFileUpload = (file: File | null) => {
+  const handleFileUpload = (file) => {
     if (!file) return;
     setIsPlaying(false);
     setIsRecording(false);
@@ -577,13 +577,13 @@ export default function App() {
     }
   };
 
-  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileInputChange = (e) => {
     handleFileUpload(e.target.files?.[0] || null);
   };
 
   // auto-fit into viewport (no extra zoom)
   const computeRenderSize = useCallback(
-    (intrinsicW: number, intrinsicH: number) => {
+    (intrinsicW, intrinsicH) => {
       const workspace = workspaceRef.current;
       if (!workspace) return { w: intrinsicW, h: intrinsicH };
       const padding = 96;
@@ -604,8 +604,8 @@ export default function App() {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let srcW: number, srcH: number;
-    let source: HTMLVideoElement | HTMLImageElement | null;
+    let srcW, srcH;
+    let source;
 
     if (mediaType === 'video') {
       const video = hiddenVideoRef.current;
@@ -686,7 +686,7 @@ export default function App() {
     if (!video) return;
 
     if (isPlaying) {
-      let id: number;
+      let id;
       const loop = () => {
         processFrame();
         id = requestAnimationFrame(loop);
@@ -715,7 +715,7 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize);
   }, [sourceUrl, processFrame]);
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e) => {
     e.preventDefault();
     handleFileUpload(e.dataTransfer.files?.[0] || null);
   };
@@ -738,8 +738,8 @@ export default function App() {
     }
 
     const stream = canvas.captureStream(30);
-    let options: MediaRecorderOptions = { mimeType: 'video/webm;codecs=vp9' };
-    if (!MediaRecorder.isTypeSupported(options.mimeType!)) {
+    let options = { mimeType: 'video/webm;codecs=vp9' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType || '')) {
       options = { mimeType: 'video/webm' };
     }
 
@@ -796,7 +796,7 @@ export default function App() {
 
   const paletteNames = [...Object.keys(PALETTE_PRESETS), 'Custom'];
 
-  const updateCustomStop = (index: number, color: string) => {
+  const updateCustomStop = (index, color) => {
     setCustomStops(stops => stops.map((c, i) => (i === index ? color : c)));
   };
 
@@ -804,7 +804,7 @@ export default function App() {
     setCustomStops(stops => [...stops, '#ffffff']);
   };
 
-  const removeCustomStop = (index: number) => {
+  const removeCustomStop = (index) => {
     setCustomStops(stops => {
       if (stops.length <= 2) return stops; // keep at least two stops
       return stops.filter((_, i) => i !== index);
@@ -817,12 +817,6 @@ export default function App() {
     min,
     max,
     onChange,
-  }: {
-    label: string;
-    value: number;
-    min: number;
-    max: number;
-    onChange: (v: number) => void;
   }) => (
     <div className="mb-3">
       <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.22em]">

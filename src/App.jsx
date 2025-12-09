@@ -92,7 +92,6 @@ const ALGORITHM_CATEGORIES = {
     'Interleaved Gradient': 'gradient',
   },
 
-  /* new category – glitch / FX options like in your screenshot */
   'Retro / FX': {
     'Glitch Vertical': 'glitchv',
     'Glitch Horizontal': 'glitchh',
@@ -460,7 +459,6 @@ const applyDither = (gray, w, h, style, lineScale, bleed, levels) => {
         case 'gradient':
           g *= gray[i] > ((x * y) % 255) ? 1.15 : 0.85;
           break;
-        /* FX / glitch modes */
         case 'glitchv':
           g += (x % (lineScale * 2) < lineScale ? 70 : -40) + (Math.random() - 0.5) * 40;
           break;
@@ -641,7 +639,7 @@ export default function App() {
     }
   }, [availableStyles, style]);
 
-  const handleFileUpload = file => {
+  const handleFileUpload = (file) => {
     if (!file) return;
     setIsPlaying(false);
     setIsRecording(false);
@@ -658,33 +656,19 @@ export default function App() {
     }
   };
 
-  const onFileInputChange = e => {
+  const onFileInputChange = (e) => {
     handleFileUpload(e.target.files?.[0] || null);
   };
 
-  const computeRenderSize = useCallback(
-    (intrinsicW, intrinsicH) => {
-      const workspace = workspaceRef.current;
-      if (!workspace) return { w: intrinsicW, h: intrinsicH };
-      const padding = 96;
-      const maxW = Math.max(260, workspace.clientWidth - padding);
-      const maxH = Math.max(260, workspace.clientHeight - padding);
-      const s = Math.min(maxW / intrinsicW, maxH / intrinsicH, 1);
-      return {
-        w: Math.max(1, Math.floor(intrinsicW * s)),
-        h: Math.max(1, Math.floor(intrinsicH * s)),
-      };
-    },
-    [],
-  );
-
+  // FULL-RES render on canvas
   const processFrame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    let srcW, srcH;
+    let srcW;
+    let srcH;
     let source;
 
     if (mediaType === 'video') {
@@ -707,7 +691,8 @@ export default function App() {
       setMediaDims({ w: srcW, h: srcH });
     }
 
-    const { w, h } = computeRenderSize(srcW, srcH);
+    const w = srcW;
+    const h = srcH;
 
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
@@ -715,7 +700,7 @@ export default function App() {
     }
 
     ctx.filter = `blur(${blur}px)`;
-    ctx.drawImage(source, 0, 0, srcW, srcH, 0, 0, w, h);
+    ctx.drawImage(source, 0, 0, w, h);
     ctx.filter = 'none';
 
     const imageData = ctx.getImageData(0, 0, w, h);
@@ -750,7 +735,6 @@ export default function App() {
     invert,
     threshold,
     blur,
-    computeRenderSize,
   ]);
 
   useEffect(() => {
@@ -793,7 +777,7 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize);
   }, [sourceUrl, processFrame]);
 
-  const handleDrop = e => {
+  const handleDrop = (e) => {
     e.preventDefault();
     handleFileUpload(e.dataTransfer.files?.[0] || null);
   };
@@ -842,7 +826,7 @@ export default function App() {
     if (mediaType === 'video' && !isPlaying) setIsPlaying(true);
   };
 
-  /* HIGH-RES EXPORT: re-run dithering at original mediaDims, not the preview size */
+  // HIGH-RES EXPORT (same as before – full res)
   const handleStaticExport = () => {
     if (!mediaDims || !sourceUrl) return;
 
@@ -906,7 +890,13 @@ export default function App() {
     if (mediaType === 'video') setIsPlaying(p => !p);
   };
 
-  const ControlGroup = ({ label, value, min, max, onChange }) => (
+  const ControlGroup = ({
+    label,
+    value,
+    min,
+    max,
+    onChange,
+  }) => (
     <div className="mb-3">
       <div className="mb-1 flex justify-between text-[9px] uppercase tracking-[0.22em]">
         <span className="text-orange-400">{label}</span>
@@ -931,7 +921,7 @@ export default function App() {
 
   const addCustomStop = () => setCustomStops(stops => [...stops, '#ffffff']);
 
-  const removeCustomStop = index => {
+  const removeCustomStop = (index) => {
     setCustomStops(stops => {
       if (stops.length <= 2) return stops;
       return stops.filter((_, i) => i !== index);
@@ -997,7 +987,7 @@ export default function App() {
           {/* CENTRAL VIEWPORT */}
           <section
             ref={workspaceRef}
-            className="relative flex min-w-0 flex-1 items-center justify-center px-8 py-6"
+            className="relative flex min-w-0 flex-1 items-center justify-center px-8 py-6 overflow-auto"
             onDragOver={e => e.preventDefault()}
             onDrop={handleDrop}
           >
@@ -1008,14 +998,14 @@ export default function App() {
                   <span>{mediaType === 'video' ? 'Live Stream' : 'Static Frame'}</span>
                 </div>
 
-                <div className="relative border border-orange-500 p-3">
+                <div className="relative border border-orange-500 p-3 max-w-full max-h-[80vh]">
                   <div className="pointer-events-none absolute inset-3 border border-orange-700" />
                   <div className="pointer-events-none absolute inset-3">
                     <div className="h-full w-full bg-[radial-gradient(circle_at_top,_rgba(255,153,0,0.18),_transparent_70%)]" />
                   </div>
                   <canvas
                     ref={canvasRef}
-                    className="relative block bg-black"
+                    className="relative block max-w-full max-h-[70vh] bg-black"
                     style={{ imageRendering: 'pixelated' }}
                   />
                 </div>
@@ -1206,30 +1196,30 @@ export default function App() {
                   ))}
                 </select>
 
-                {/* Preset palettes */}
                 {paletteCategory !== 'Custom' && (
                   <div className="mb-3 space-y-2">
-                    {(PALETTE_PRESETS[paletteCategory] || []).map((pal, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setPaletteIdx(idx)}
-                        className={`relative flex h-7 w-full overflow-hidden border ${
-                          paletteIdx === idx
-                            ? 'border-orange-400'
-                            : 'border-orange-700'
-                        }`}
-                      >
-                        <div className="absolute inset-0 flex">
-                          {pal.map((c, i) => (
-                            <div key={i} style={{ background: c }} className="flex-1" />
-                          ))}
-                        </div>
-                      </button>
-                    ))}
+                    {(PALETTE_PRESETS[paletteCategory] || []).map(
+                      (pal, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setPaletteIdx(idx)}
+                          className={`relative flex h-7 w-full overflow-hidden border ${
+                            paletteIdx === idx
+                              ? 'border-orange-400'
+                              : 'border-orange-700'
+                          }`}
+                        >
+                          <div className="absolute inset-0 flex">
+                            {pal.map((c, i) => (
+                              <div key={i} style={{ background: c }} className="flex-1" />
+                            ))}
+                          </div>
+                        </button>
+                      ),
+                    )}
                   </div>
                 )}
 
-                {/* Custom palette editor */}
                 {paletteCategory === 'Custom' && (
                   <div className="mb-3 space-y-2">
                     {customStops.map((color, idx) => (
